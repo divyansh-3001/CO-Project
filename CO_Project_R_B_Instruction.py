@@ -14,9 +14,7 @@ R_TYPE_INSTRUCTIONS = {
 
 # R-type Encoding Format:
 # funct7, rs2, rs1, funct3, rd, opcode
-R_TYPE_ENCODING_FORMAT = [
-    "funct7", "rs2", "rs1", "funct3", "rd", "opcode"
-]
+R_TYPE_ENCODING_FORMAT = ["funct7", "rs2", "rs1", "funct3", "rd", "opcode"]
 # B-type Instructions Dictionary (RISC-V)
 B_TYPE_INSTRUCTIONS = {
     "beq":  {"funct3": "000", "opcode": "1100011"},
@@ -26,8 +24,5 @@ B_TYPE_INSTRUCTIONS = {
     "bltu": {"funct3": "110", "opcode": "1100011"},
     "bgeu": {"funct3": "111", "opcode": "1100011"},
 }
-# Immediate breakdown for B-type instructions
 # Immediate[12], Immediate[10:5], rs2, rs1, funct3, Immediate[4:1], Immediate[11], opcode
-B_TYPE_ENCODING_FORMAT = [
-    "imm[12]", "imm[10:5]", "rs2", "rs1", "funct3", "imm[4:1]", "imm[11]", "opcode"
-]
+B_TYPE_ENCODING_FORMAT = ["imm[12]", "imm[10:5]", "rs2", "rs1", "funct3", "imm[4:1]", "imm[11]", "opcode"]
