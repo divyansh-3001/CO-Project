@@ -275,20 +275,19 @@ def labelconsideration(filename):
     Im reading a file here and which identifies and stores the l of that particular address
     """
     l = {}
-    address = 0
+    val = 0
     with open(filename, 'r') as file:
         for line in file:
             line = line.split('#')[0].strip()
             if not line:
                 continue
-            
             if line.endswith(':'):
                 label = line[:-1]
-                l[label] = address
+                l[label] = val
             else:
                 t = tokenize_instruction(line)
                 if t:
-                    address += 4
+                    val += 4
     return l
 def labelconsideration2(filename, l):
     """
@@ -298,29 +297,22 @@ def labelconsideration2(filename, l):
     with open(filename, 'r') as file:
         for line in file:
             print("for reading the line", line.strip())
-
             t = tokenize_instruction(line)
             if t is None:
                 continue  
-            
             print("Tokens:", t)
-            
             instr_type = get_instruction_type(t)
             if instr_type is None:
                 print(f"error{t[0]}'")
                 continue
-            
-            print("Instruction Type:", instr_type) 
+            print("instruction", instr_type) 
             
             dic = find_instruction_info(t)
             if dic is None:
                 print(f"Error{t[0]}' not found")
                 continue 
-
-            print("Instruction Info:", dic)
-            
+            print("information", dic)
             opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
-            
             imm = find_immediate(t, instr_type)
             if imm is None and instr_type in ["B", "J"]:
                 label = t[-1]
@@ -329,28 +321,23 @@ def labelconsideration2(filename, l):
                 else:
                     print(f"Error: Unresolved label '{label}'")
                     continue
-            
-            print("Immediate:", imm)
-            
+            print("imm value", imm)
             r_list = find_registers_binary(t)
-            print("Register List:", r_list)
-
-            if instr_type == "R":
-                print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
-            elif instr_type == "I":
-                print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm))   
+            print("list of registers", r_list)
+            if instr_type == "B":
+                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
             elif instr_type == "S":
                 print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
-            elif instr_type == "B":
-                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
+            elif instr_type == "I":
+                print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm))   
             elif instr_type == "U":
                 print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))  
             elif instr_type == "J":
                 print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))
-            
+            elif instr_type == "R":
+                print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
             if t and not line.endswith(':'):
                 address += 4
-
-filename = input("Enter file name for the input: ").strip()
+filename = input("enter file name").strip()
 l = labelconsideration(filename)
 labelconsideration2(filename, l)
