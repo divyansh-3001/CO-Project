@@ -274,7 +274,7 @@ def process_file(filename):
              
 
 # Read instructions from 'instructions.txt'
-filename = input("Enter file name: ")
+filename = input("Enter file name for the input")
 process_file(filename)
 
 
