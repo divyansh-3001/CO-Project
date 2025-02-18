@@ -272,11 +272,92 @@ def process_file(filename):
                 continue
 
              
+def labelconsideration(filename):
+    """
+    Im reading a file here and which identifies and stores the l of that particular address
+    """
+    l = {}
+    address = 0
+    with open(filename, 'r') as file:
+        for line in file:
+            line = line.split('#')[0].strip()
+            if not line:
+                continue
+            
+            if line.endswith(':'):
+                label = line[:-1]
+                l[label] = address
+            else:
+                t = tokenize_instruction(line)
+                if t:
+                    address += 4
 
-# Read instructions from 'instructions.txt'
+    return l
+
+def labelconsideration2(filename, l):
+    """
+    Reads a file line by line, processes instructions, replaces l with addresses or offsets.
+    I have here made a second pass function that reads a file again line by line and replaces the l with addresses
+    """
+    with open(filename, 'r') as file:
+        for line in file:
+            print("for reading the line", line.strip())
+
+            t = tokenize_instruction(line)
+            if t is None:
+                continue  
+            
+            print("Tokens:", t)
+            
+            instr_type = get_instruction_type(t)
+            if instr_type is None:
+                print(f"error{t[0]}'")
+                continue
+            
+            print("Instruction Type:", instr_type) 
+            
+            dic = find_instruction_info(t)
+            if dic is None:
+                print(f"Error{t[0]}' not found")
+                continue 
+
+            print("Instruction Info:", dic)
+            
+            opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
+            
+            imm = find_immediate(t, instr_type)
+            if imm is None and instr_type in ["B", "J"]:
+                label = t[-1]
+                if label in l:
+                    imm = l[label] - address
+                else:
+                    print(f"Error: Unresolved label '{label}'")
+                    continue
+            
+            print("Immediate:", imm)
+            
+            r_list = find_registers_binary(t)
+            print("Register List:", r_list)
+
+            if instr_type == "R":
+                print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
+            elif instr_type == "I":
+                print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm))   
+            elif instr_type == "S":
+                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
+            elif instr_type == "B":
+                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
+            elif instr_type == "U":
+                print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))  
+            elif instr_type == "J":
+                print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))
+
+
+filename = input("Enter file name for the input")
+l = labelconsideration(filename)
+labelconsideration2(filename, l)
 filename = input("Enter file name for the input")
 process_file(filename)
-
 
 
 
