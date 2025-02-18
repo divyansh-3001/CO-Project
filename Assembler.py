@@ -296,7 +296,6 @@ def labelconsideration(filename):
 
 def labelconsideration2(filename, l):
     """
-    Reads a file line by line, processes instructions, replaces l with addresses or offsets.
     I have here made a second pass function that reads a file again line by line and replaces the l with addresses
     """
     with open(filename, 'r') as file:
