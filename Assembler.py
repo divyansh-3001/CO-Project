@@ -269,9 +269,7 @@ def process_file(filename):
                     print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate))  
             else:
                 print("Skipping blank line.")
-                continue
-
-             
+                continue    
 def labelconsideration(filename):
     """
     Im reading a file here and which identifies and stores the l of that particular address
@@ -291,13 +289,12 @@ def labelconsideration(filename):
                 t = tokenize_instruction(line)
                 if t:
                     address += 4
-
     return l
-
 def labelconsideration2(filename, l):
     """
     I have here made a second pass function that reads a file again line by line and replaces the l with addresses
     """
+    address = 0
     with open(filename, 'r') as file:
         for line in file:
             print("for reading the line", line.strip())
@@ -350,16 +347,10 @@ def labelconsideration2(filename, l):
                 print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))  
             elif instr_type == "J":
                 print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))
+            
+            if t and not line.endswith(':'):
+                address += 4
 
-
-filename = input("Enter file name for the input")
-process_file(filename)
+filename = input("Enter file name for the input: ").strip()
 l = labelconsideration(filename)
 labelconsideration2(filename, l)
-
-
-
-
-
-
-
