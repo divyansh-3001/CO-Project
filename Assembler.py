@@ -272,71 +272,75 @@ def process_file(filename):
                 continue    
 def labelconsideration(filename):
     """
-    Im reading a file here and which identifies and stores the l of that particular address
+    First pass: Reads a file and collects labels and their addresses.
     """
-    l = {}
-    val = 0
+    labels = {}  # Dictionary to store label addresses
+    address = 0  # Start with address 0
     with open(filename, 'r') as file:
         for line in file:
-            line = line.split('#')[0].strip()
-            if not line:
+            line = line.strip()  # Remove leading/trailing spaces
+            if line == '':
                 continue
-            if line.endswith(':'):
-                label = line[:-1]
-                l[label] = val
-            else:
-                t = tokenize_instruction(line)
-                if t:
-                    val += 4
-    return l
-def labelconsideration2(filename, l):
+
+            # Check if the line is a label (e.g., 'start:')
+            if ':' in line:
+                label = line.split(':')[0]  # Extract the label name (e.g., 'start')
+                labels[label] = address  # Store label address
+
+            # Increment the address by 4 bytes for the next instruction
+            if not line.endswith(':'):
+                address += 4
+    
+    return labels
+def labelconsideration2(filename, labels):
     """
-    I have here made a second pass function that reads a file again line by line and replaces the l with addresses
+    Second pass: Replaces labels with addresses and computes offsets for branch instructions like BEQ.
     """
     address = 0
     with open(filename, 'r') as file:
         for line in file:
-            print("for reading the line", line.strip())
-            t = tokenize_instruction(line)
-            if t is None:
-                continue  
-            print("Tokens:", t)
-            instr_type = get_instruction_type(t)
+            tokens = tokenize_instruction(line)
+            if tokens is None:
+                continue  # Skip empty lines
+
+            instr_type = get_instruction_type(tokens)
             if instr_type is None:
-                print(f"error{t[0]}'")
                 continue
-            print("instruction", instr_type) 
+
+            instr_info = find_instruction_info(tokens)
+            if instr_info is None:
+                continue
+
+            opcode, funct3, funct7 = instr_info["opcode"], instr_info["funct3"], instr_info["funct7"]
             
-            dic = find_instruction_info(t)
-            if dic is None:
-                print(f"error{t[0]}' not found")
-                continue 
-            print("information", dic)
-            opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
-            imm = find_immediate(t, instr_type)
+            imm = find_immediate(tokens, instr_type)
             if imm is None and instr_type in ["B", "J"]:
-                label = t[-1]
-                if label in l:
-                    imm = l[label] - address
+                label = tokens[-1]  # The label is the last token (e.g., "start")
+                if label in labels:
+                    imm = labels[label] - address  # Calculate the offset
                 else:
-                    print(f"error for unsolved label'{label}'")
+                    print(f"Error: Unresolved label '{label}'")
                     continue
-            print("imm value", imm)
-            r_list = find_registers_binary(t)
-            print("list of registers", r_list)
-            if instr_type == "B":
-                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
-            elif instr_type == "S":
-                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))  
+
+            # Find the registers and convert them to binary
+            r_list = find_registers_binary(tokens)
+
+            # Format the instruction based on its type
+            if instr_type == "R":
+                print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
             elif instr_type == "I":
-                print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm))   
+                print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm))
+            elif instr_type == "S":
+                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))
+            elif instr_type == "B":
+                print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm))
             elif instr_type == "U":
-                print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))  
+                print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))
             elif instr_type == "J":
                 print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm))
-            elif instr_type == "R":
-                print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
-            if t and not line.endswith(':'):
+
+            # Increment address for each instruction (ignoring labels)
+            if tokens and not line.endswith(':'):
                 address += 4
 filename = input("enter file name").strip()
 l = labelconsideration(filename)
