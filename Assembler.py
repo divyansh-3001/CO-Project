@@ -7,12 +7,94 @@ instruction_dict = {
     "S": ["SW", "SH", "SB"],
     "B": ["BEQ", "BNE", "BLT", "BGE"],
     "U": ["LUI", "AUIPC"],
-    "J": ["JAL"]
+    "J": ["JAL"]}
+# funct3 Dictionary
+register_map = {
+("x0", "zero"):  "00000",
+("x1", "ra"):    "00001",
+("x2", "sp"):    "00010",
+("x3", "gp"):    "00011",
+("x4", "tp"):    "00100",
+("x5", "t0"):    "00101",
+("x6", "t1"):    "00110",
+("x7", "t2"):    "00111",
+("x8", "s0"):    "01000",
+("x9", "s1"):    "01001",
+("x10", "a0"):   "01010",
+("x11", "a1"):   "01011",
+("x12", "a2"):   "01100",
+("x13", "a3"):   "01101",
+("x14", "a4"):   "01110",
+("x15", "a5"):   "01111",
+("x16", "a6"):   "10000",
+("x17", "a7"):   "10001",
+("x18", "s2"):   "10010",
+("x19", "s3"):   "10011",
+("x20", "s4"):   "10100",
+("x21", "s5"):   "10101",
+("x22", "s6"):   "10110",
+("x23", "s7"):   "10111",
+("x24", "s8"):   "11000",
+("x25", "s9"):   "11001",
+("x26", "s10"):  "11010",
+("x27", "s11"):  "11011",
+("x28", "t3"):   "11100",
+("x29", "t4"):   "11101",
+("x30", "t5"):   "11110",
+("x31", "t6"):   "11111",
+}
+
+
+
+instruction_info = {
+    # R-type Instructions
+    "ADD":  {"opcode": "0110011", "funct3": "000", "funct7": "0000000"},
+    "SUB":  {"opcode": "0110011", "funct3": "000", "funct7": "0100000"},
+    "AND":  {"opcode": "0110011", "funct3": "111", "funct7": "0000000"},
+    "OR":   {"opcode": "0110011", "funct3": "110", "funct7": "0000000"},
+    "XOR":  {"opcode": "0110011", "funct3": "100", "funct7": "0000000"},
+    "SLL":  {"opcode": "0110011", "funct3": "001", "funct7": "0000000"},
+    "SRL":  {"opcode": "0110011", "funct3": "101", "funct7": "0000000"},
+    "SRA":  {"opcode": "0110011", "funct3": "101", "funct7": "0100000"},
+    "MUL":  {"opcode": "0110011", "funct3": "000", "funct7": "0000001"},
+    "DIV":  {"opcode": "0110011", "funct3": "100", "funct7": "0000001"},
+    "REM":  {"opcode": "0110011", "funct3": "110", "funct7": "0000001"},
+    
+    # I-type Instructions
+    "ADDI":  {"opcode": "0010011", "funct3": "000", "funct7": None},
+    "ANDI":  {"opcode": "0010011", "funct3": "111", "funct7": None},
+    "ORI":   {"opcode": "0010011", "funct3": "110", "funct7": None},
+    "XORI":  {"opcode": "0010011", "funct3": "100", "funct7": None},
+    "SLLI":  {"opcode": "0010011", "funct3": "001", "funct7": "0000000"},
+    "SRLI":  {"opcode": "0010011", "funct3": "101", "funct7": "0000000"},
+    "SRAI":  {"opcode": "0010011", "funct3": "101", "funct7": "0100000"},
+    "LW":    {"opcode": "0000011", "funct3": "010", "funct7": None},
+    "LH":    {"opcode": "0000011", "funct3": "001", "funct7": None},
+    "LB":    {"opcode": "0000011", "funct3": "000", "funct7": None},
+    "JALR":  {"opcode": "1100111", "funct3": "000", "funct7": None},
+    
+    # S-type Instructions
+    "SW":    {"opcode": "0100011", "funct3": "010", "funct7": None},
+    "SH":    {"opcode": "0100011", "funct3": "001", "funct7": None},
+    "SB":    {"opcode": "0100011", "funct3": "000", "funct7": None},
+    
+    # B-type Instructions
+    "BEQ":   {"opcode": "1100011", "funct3": "000", "funct7": None},
+    "BNE":   {"opcode": "1100011", "funct3": "001", "funct7": None},
+    "BLT":   {"opcode": "1100011", "funct3": "100", "funct7": None},
+    "BGE":   {"opcode": "1100011", "funct3": "101", "funct7": None},
+    
+    # U-type Instructions
+    "LUI":   {"opcode": "0110111", "funct3": None, "funct7": None},
+    "AUIPC": {"opcode": "0010111", "funct3": None, "funct7": None},
+    
+    # J-type Instructions
+    "JAL":   {"opcode": "1101111", "funct3": None, "funct7": None},
 }
 
 def tokenize_instruction(line):
     """
-    Tokenizes a RISC-V instruction by handling spaces, commas, and memory offsets (e.g., 100(x7) → ["100", "x7"]).
+    Tokenizes a RISC-V instruction by handling spaces, commas, and memory offsets.
     Example: "ADDI x1, x2, 10" → ["ADDI", "x1", "x2", "10"]
              "LW x6, 100(x7)" → ["LW", "x6", "100", "x7"]
     """
@@ -22,10 +104,11 @@ def tokenize_instruction(line):
         return None
 
     # Properly handle memory offsets like "100(x7)" → "100 x7"
-    line = re.sub(r'(\d+)\((x\d+)\)', r'\1 \2', line)
+    line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line)
 
     # Split by space or comma
     tokens = re.split(r'[,\s]+', line)
+    
     return tokens
 
 def get_instruction_type(tokens):
@@ -35,56 +118,35 @@ def get_instruction_type(tokens):
     """
     if not tokens:
         return None
-
-    instr = tokens[0].upper()  # First token is always the instruction
     for inst_type, inst_list in instruction_dict.items():
-        if instr in inst_list:
-            return inst_type
-    return "Unknown"
+        for instr in tokens:
+            if instr.upper() in inst_list:
+                return inst_type
 
-def find_immediate(tokens, instr_type):
-    """
-    Extracts the immediate value if the instruction is not R-type.
-    Looks for any integer value in the tokens.
-    """
-    if instr_type == "R":
-        return None  # R-type instructions do not have an immediate value
 
+def find_registers_binary(tokens):
+    """
+    Searches for register names in the token list and returns a list of their 5-bit binary values.
+    
+    Example:
+    tokens = ["ADDI", "x1", "x2", "10"] → ['00001', '00010']
+    tokens = ["LW", "a0", "100", "s1"] → ['01010', '10001']
+    """
+
+    binary_values = []
+    
     for token in tokens:
-        if token.lstrip('-').isdigit():  # Check if token is a number (allowing negative values)
-            return int(token)  # Convert to integer
-    return None  # No immediate found
+        token = token.lower()  # Normalize case
+        
+        # Check if token matches any key in register_map
+        for (x_name, abi_name), binary in register_map.items():
+            if token == x_name or token == abi_name:
+                binary_values.append(binary)
+                break  # Stop checking once a match is found
+    
+    return binary_values
 
-def process_file(filename):
-    """
-    Reads a file line by line, processes instructions, classifies them, and extracts immediates.
-    """
-    with open(filename, 'r') as file:
-        for line in file:
-            tokens = tokenize_instruction(line)
-            if tokens:  # Ignore blank lines
-                instr_type = get_instruction_type(tokens)
-                immediate = find_immediate(tokens, instr_type)
-                
-                print(f"Instruction: {line.strip()}")
-                print(f"Tokens: {tokens}")
-                print(f"Instruction Type: {instr_type}")
-                if immediate is not None:
-                    print(f"Immediate Value: {immediate}")
-                print("-" * 40)
-
-# Read instructions from 'instructions.txt'
-filename = input("Enter file name: ")
-process_file(filename)
-
-def to_signed_binary(value, bits):
-    """Converts an integer to a signed two’s complement binary representation."""
-    if value < 0:
-        value = (1 << bits) + value  # Two's complement conversion for negative numbers
-    return format(value, f'0{bits}b')  # Ensures correct bit width
-
-
-def format_instruction(instruction_type, opcode, funct3, funct7, rd=None, rs1=None, rs2=None, immediate=None):
+def format_instruction(instruction_type, opcode, funct3, funct7, rd_bin, rs1_bin, rs2_bin, immediate):
     """
     Formats an instruction into its correct binary representation.
     
@@ -102,11 +164,7 @@ def format_instruction(instruction_type, opcode, funct3, funct7, rd=None, rs1=No
     - str: Full 32-bit binary instruction.
     """
     
-    # Convert registers to 5-bit binary
-    rd_bin = format(rd, '05b') if rd is not None else "00000"
-    rs1_bin = format(rs1, '05b') if rs1 is not None else "00000"
-    rs2_bin = format(rs2, '05b') if rs2 is not None else "00000"
-    
+
     if instruction_type == "R":
         return f"{funct7}{rs2_bin}{rs1_bin}{funct3}{rd_bin}{opcode}"
     
@@ -133,16 +191,95 @@ def format_instruction(instruction_type, opcode, funct3, funct7, rd=None, rs1=No
     else:
         return "Invalid Instruction Type"
 
+def to_signed_binary(value, bits):
+    """Converts an integer to a signed two’s complement binary representation."""
+    if value < 0:
+        value = (1 << bits) + value  # Two's complement conversion for negative numbers
+    return format(value, f'0{bits}b')  # Ensures correct bit width
 
-# ✅ **Example Usage**
-test_instructions = [
-    ("R", "0110011", "000", "0000000", 1, 2, 3, None),  # ADD x1, x2, x3
-    ("I", "0010011", "000", None, 1, 2, None, 100),  # ADDI x1, x2, 100
-    ("S", "0100011", "010", None, None, 2, 3, 100),  # SW x3, 100(x2)
-    ("B", "1100011", "000", None, None, 2, 3, 100),  # BEQ x2, x3, 100
-    ("U", "0110111", None, None, 1, None, None, 100000),  # LUI x1, 100000
-    ("J", "1101111", None, None, 1, None, None, 1000)  # JAL x1, 1000
-]
+        
 
-for instr in test_instructions:
-    print(f"{instr[0]}-Type Instruction: {format_instruction(*instr)}")
+def find_immediate(tokens, instr_type):
+    """
+    Extracts the immediate value if the instruction is not R-type.
+    Looks for any integer value in the tokens.
+    """
+    if instr_type == "R":
+        return None  # R-type instructions do not have an immediate value
+
+    for token in tokens:
+        if token.lstrip('-').isdigit():  # Check if token is a number (allowing negative values)
+            return int(token)  # Convert to integer
+    return None  # No immediate found
+def find_instruction_info(tokens):
+    """
+    Searches for an instruction in the token list and returns its opcode, funct3, and funct7.
+    Example: ["ADDI", "x1", "x2", "10"] → {'opcode': '0010011', 'funct3': '000', 'funct7': None}
+    """
+    if not tokens:
+        return None
+
+    for token in tokens:
+        token_upper = token.upper()  # Normalize case
+        if token_upper in instruction_info:
+            return instruction_info[token_upper]
+    
+    return None  # Return None if no instruction matches
+def process_file(filename):
+    """
+    Reads a file line by line, processes instructions, classifies them, and extracts immediates.
+    """
+    with open(filename, 'r') as file:
+        for line in file:
+            print("Reading Line:", line.strip())  # Debugging
+
+            tokens = tokenize_instruction(line)
+            print("Tokens:", tokens)  # Debugging
+
+            if tokens:  # Ignore blank lines
+                instr_type = get_instruction_type(tokens)
+                print("Instruction Type:", instr_type)  # Debugging
+                
+                dic = find_instruction_info(tokens)
+                print("Instruction Info:", dic)  # Debugging
+                
+                if dic is None:
+                    print("Skipping line: Instruction not found.")
+                    continue
+
+                opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
+                
+                immediate = find_immediate(tokens, instr_type)
+                print("Immediate:", immediate)  # Debugging
+                
+                r_list = find_registers_binary(tokens)
+                print("Register List:", r_list)  # Debugging
+
+                if instr_type == "R":
+                    print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
+                elif instr_type == "I":
+                    print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, immediate))   
+                elif instr_type == "S":
+                    print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate))  
+                elif instr_type == "B":
+                    print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate))  
+                elif instr_type == "U":
+                    print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate))  
+                elif instr_type == "J":
+                    print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate))  
+            else:
+                print("Skipping blank line.")
+                continue
+
+             
+
+# Read instructions from 'instructions.txt'
+filename = input("Enter file name: ")
+process_file(filename)
+
+
+
+
+
+
+
