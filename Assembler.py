@@ -354,10 +354,10 @@ def labelconsideration2(filename, l):
 
 
 filename = input("Enter file name for the input")
+process_file(filename)
 l = labelconsideration(filename)
 labelconsideration2(filename, l)
-filename = input("Enter file name for the input")
-process_file(filename)
+
 
 
 
