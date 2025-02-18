@@ -309,7 +309,7 @@ def labelconsideration2(filename, l):
             
             dic = find_instruction_info(t)
             if dic is None:
-                print(f"Error{t[0]}' not found")
+                print(f"error{t[0]}' not found")
                 continue 
             print("information", dic)
             opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
@@ -319,7 +319,7 @@ def labelconsideration2(filename, l):
                 if label in l:
                     imm = l[label] - address
                 else:
-                    print(f"Error: Unresolved label '{label}'")
+                    print(f"error for unsolved label'{label}'")
                     continue
             print("imm value", imm)
             r_list = find_registers_binary(t)
