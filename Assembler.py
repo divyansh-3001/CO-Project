@@ -327,5 +327,3 @@ lines=read_file(filename)
 output_filename = "output.txt"  # Define the output file
 process_file(filename, output_filename)
 
-
-
