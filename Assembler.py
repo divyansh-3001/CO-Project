@@ -3,7 +3,7 @@ import re
 #first we define all the important dictionaries etc containing data
 register_names_set = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"}
 instruction_types_list_dict = {
-    "R": ["ADD", "SUB", "AND", "OR", "XOR", "SLL", "SRL", "SRA", "MUL", "DIV", "REM"],
+    "R": ["ADD", "SUB", "AND", "OR", "XOR", "SLL", "SLT", "SRL", "SRA", "MUL", "DIV", "REM"],
     "I": ["ADDI", "ANDI", "ORI", "XORI", "SLLI", "SRLI", "SRAI", "LW", "LH", "LB", "JALR"],
     "S": ["SW", "SH", "SB"],
     "B": ["BEQ", "BNE", "BLT", "BGE"],
@@ -54,6 +54,7 @@ instruction_info_main_dict = {
     "OR":   {"opcode": "0110011", "funct3": "110", "funct7": "0000000"},
     "XOR":  {"opcode": "0110011", "funct3": "100", "funct7": "0000000"},
     "SLL":  {"opcode": "0110011", "funct3": "001", "funct7": "0000000"},
+    "SLT":  {"opcode": "0110011", "funct3" : "010","funct7" :"0000000"},
     "SRL":  {"opcode": "0110011", "funct3": "101", "funct7": "0000000"},
     "SRA":  {"opcode": "0110011", "funct3": "101", "funct7": "0100000"},
     "MUL":  {"opcode": "0110011", "funct3": "000", "funct7": "0000001"},
@@ -84,7 +85,7 @@ instruction_info_main_dict = {
     "BLT":   {"opcode": "1100011", "funct3": "100", "funct7": None},
     "BGE":   {"opcode": "1100011", "funct3": "101", "funct7": None},
     
-    # for -type 
+    # for U-type 
     "LUI":   {"opcode": "0110111", "funct3": None, "funct7": None},
     "AUIPC": {"opcode": "0010111", "funct3": None, "funct7": None},
     
@@ -92,19 +93,42 @@ instruction_info_main_dict = {
     "JAL":   {"opcode": "1101111", "funct3": None, "funct7": None},
 }
 
-def create_tokens_from_line(line):
+# def create_tokens_from_line(line):
  
+#     line = line.split("#")[0].strip()
+
+#     if not line:  
+#         return None #Empty lines
+    
+#     line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line) #for offsets like 100(x1) etc
+
+    
+#     tokens = re.split(r'[,\s]+', line)
+    
+#     return tokens #This is a list of important terms extracted from a line
+def create_tokens_from_line(line):
     line = line.split("#")[0].strip()
 
     if not line:  
-        return None #Empty lines
+        return None  # Empty lines
     
-    line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line) #for offsets like 100(x1) etc
+    # Handle offsets like 100(x1) → "100 x1"
+    line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line)
 
-    
+    # Split line into tokens
     tokens = re.split(r'[,\s]+', line)
+
+    # Process tokens to handle labels (items with ":")
+    new_tokens = []
+    for token in tokens:
+        if ":" in token and not token.endswith(":"):  # If ":" is present but not at the end
+            parts = token.split(":", 1)  # Split at the first ":"
+            new_tokens.append(parts[0] + ":")  # Keep ":" with first part
+            new_tokens.append(parts[1])  # Add the second part separately
+        else:
+            new_tokens.append(token)  # Keep token as is
     
-    return tokens #This is a list of important terms extracted from a line
+    return new_tokens  # Return modified list
 
 def instruction_type_func(tokens): #For determining type of instruction like I R etc
     if not tokens:
@@ -130,6 +154,8 @@ def convert_register_to_binary(tokens): #Registers in a token are first searched
                 break  
     
     return binary_list
+
+
 
 def format_instruction(type, opcode, funct3, funct7, rd, rs1, rs2, imm): #This returns encoding for a type of instruction
 
@@ -169,41 +195,52 @@ def binary_to_signed_binary(value, bits): #This simply converts a binary to sign
 def get_nearest_label_offset(lines, target_index): #This is for label handling
     global register_names_set
     
-    tokenized_lines = [re.split(r'[\s,]+', line) for line in lines]
-    label_positions = {}
     
-    for i, tokens in enumerate(tokenized_lines):
+    tokenized_line = [create_tokens_from_line(line) for line in lines]
+  
+    label_position = {}
+    
+    for i, tokens in enumerate(tokenized_line): #getting all label positions
         if tokens[0].endswith(":"):
             label = tokens[0][:-1]
-            if label not in label_positions:
-                label_positions[label] = []
-            label_positions[label].append(i)
+            if label not in label_position:
+                label_position[label] = []
+            label_position[label].append(i)
+
+   
     
-    if target_index < len(tokenized_lines):
-        tokens = tokenized_lines[target_index]
+    if target_index < len(tokenized_line): #getting the possible ones out of all label positions
+        
+        tokens = tokenized_line[target_index]
+      
         if tokens and tokens[-1] not in register_names_set and not tokens[-1].isdigit():
-            label = tokens[-1]
-            possible_positions = label_positions.get(label, [])
             
+        
+            label = tokens[-1]
+            possible_positions = label_position.get(label, [])
             
             
             
             if possible_positions:
                 nearest_position = min(possible_positions, key=lambda x: abs(x - target_index))  # Pick the closest label
                 
-                return (nearest_position - target_index) * 4
+                return (nearest_position - target_index) * 4 #*4 because of counter
+
     
     return None  #if no label is found
 
 def find_immediate_value(tokens, type): #This function finds the immediate value
 
-
-    target = next((i for i, line in enumerate(lines) if re.split(r'[ ,]+', line) == tokens), -1)
+    # for line in lines:
+    #     print(create_tokens_from_line(line))
+    target = next((i for i, line in enumerate(lines) if re.split(r'[,\s]+', line) == tokens), -1) #.split(r'[,\s]+', line)
+    # for i, line in enumerate(lines):
+    #     print("i,", i)
+    #     print("line,", line)
     
-
-
-
+    
     if tokens and tokens[-1] not in register_names_set and not tokens[-1].lstrip('-').isdigit(): #label is involved
+
         return get_nearest_label_offset(lines, target)
     else: #label is not involved
         
@@ -214,6 +251,8 @@ def find_immediate_value(tokens, type): #This function finds the immediate value
             if token.lstrip('-').isdigit():  
                 return int(token)  
         return None  
+
+
     
 def func_for_instruction_info(tokens): #This function gets all the info for an instruction as you can see in the dictionary also
 
@@ -270,7 +309,8 @@ def process_file(input_file, output_filename): #main function of our program whe
             break  
     
     
-    with open(output_filename, 'w') as output_file: #writing in the output file
+    with open("/Users/divyanshgoel/Downloads/CO_Project_Allocated_jan30_2025/automatedTesting/tests/assembly/user_bin_s/" + str(output_filename), 'w') as output_file: #writing in the output file
+    
         if errors:
             for error in errors:
                 output_file.write(error + '\n')
@@ -278,7 +318,7 @@ def process_file(input_file, output_filename): #main function of our program whe
         else:
             for binary in binary_output:
                 output_file.write(binary + '\n')
-                print(binary)
+                
 
 
 
@@ -288,10 +328,11 @@ def read_file(filepath):
     return lines
            
 
-#main executable body of our program
+# #main executable body of our program
+#print("token - ", create_tokens_from_line("label1: bne s0,s1,8"))
 filename = input("Enter input file name: ")
 lines=read_file(filename)
 
-output_filename = input("Enter output file name: ")  
+output_filename = filename
 process_file(filename, output_filename)
-
+#print(find_immediate_value(["label4e:", "beq" , "zero","zero","label4b"], "B"))
