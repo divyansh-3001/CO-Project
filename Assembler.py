@@ -94,17 +94,12 @@ instruction_info = {
 }
 
 def tokenize_instruction(line):
-    """
-    Tokenizes a RISC-V instruction by handling spaces, commas, and memory offsets.
-    Example: "ADDI x1, x2, 10" → ["ADDI", "x1", "x2", "10"]
-             "LW x6, 100(x7)" → ["LW", "x6", "100", "x7"]
-    """
-    # Remove comments and extra spaces
+ 
     line = line.split("#")[0].strip()
     if not line:  # Ignore empty lines
         return None
 
-    # Properly handle memory offsets like "100(x7)" → "100 x7"
+    # This is to handle offset values like 100(x7) 
     line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line)
 
     # Split by space or comma
@@ -186,7 +181,7 @@ def format_instruction(instruction_type, opcode, funct3, funct7, rd_bin, rs1_bin
         return f"{imm_bin}{rd_bin}{opcode}"
     
     elif instruction_type == "J":
-        imm_bin = to_signed_binary(immediate, 20)
+        imm_bin = to_signed_binary(immediate, 21)
         return f"{imm_bin[0]}{imm_bin[10:20]}{imm_bin[9]}{imm_bin[1:9]}{rd_bin}{opcode}"
     
     else:
@@ -263,47 +258,61 @@ def find_instruction_info(tokens):
             return instruction_info[token_upper]
     
     return None  # Return None if no instruction matches
-def process_file(filename):
-    """
-    Reads a file line by line, processes instructions, classifies them, and extracts immediates.
-    """
-    with open(filename, 'r') as file:
-        for line in file:
-
+import re
+def process_file(input_filename, output_filename):
+    errors = []  # Store errors
+    binary_output = []
+    
+    with open(input_filename, 'r') as file:
+        lines = file.readlines()
+    
+    for line_number, line in enumerate(lines, start=1):
+        try:
             tokens = tokenize_instruction(line)
-
-            if tokens:  # Ignore blank lines
+            if tokens:
                 instr_type = get_instruction_type(tokens)
-                
                 dic = find_instruction_info(tokens)
                 
                 if dic is None:
-                    print("Skipping line: Instruction not found.")
+                    errors.append(f"[Error at line {line_number}] Instruction not found: {tokens}")
                     continue
-
+                
                 opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
-                
                 immediate = find_immediate(tokens, instr_type)
-                print("Immediate:", immediate)  # Debugging
-                
                 r_list = find_registers_binary(tokens)
-                print("Register List:", r_list)  # Debugging
-
+                
                 if instr_type == "R":
-                    print(format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None))
+                    binary_instr = format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None)
                 elif instr_type == "I":
-                    print(format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, immediate))   
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, immediate)
                 elif instr_type == "S":
-                    print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate))  
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate)
                 elif instr_type == "B":
-                    print(format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate))  
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate)
                 elif instr_type == "U":
-                    print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate))  
+                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate)
                 elif instr_type == "J":
-                    print(format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate))  
+                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate)
+                
+                binary_output.append(binary_instr)
             else:
-                print("Skipping blank line.")
                 continue
+        except Exception as e:
+            errors.append(f"[Error at line {line_number}] {str(e)}")
+            break  # Stop processing further lines if an error occurs
+    
+    # Write to output file
+    with open(output_filename, 'w') as output_file:
+        if errors:
+            for error in errors:
+                output_file.write(error + '\n')
+                print(error)
+        else:
+            for binary in binary_output:
+                output_file.write(binary + '\n')
+                print(binary)
+
+
 
 def read_file(filepath):
     with open(filepath, 'r') as file:
@@ -311,7 +320,12 @@ def read_file(filepath):
     return lines
            
 
-# Read instructions from 'instructions.txt'
+
 filename = input("Enter file name: ")
 lines=read_file(filename)
-process_file(filename)
+# Example usage
+output_filename = "output.txt"  # Define the output file
+process_file(filename, output_filename)
+
+
+
