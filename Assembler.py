@@ -1,16 +1,15 @@
 import re
-register_names = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"}
 
-# Dictionary of instruction types
-instruction_dict = {
+#first we define all the important dictionaries etc containing data
+register_names_set = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"}
+instruction_types_list_dict = {
     "R": ["ADD", "SUB", "AND", "OR", "XOR", "SLL", "SRL", "SRA", "MUL", "DIV", "REM"],
     "I": ["ADDI", "ANDI", "ORI", "XORI", "SLLI", "SRLI", "SRAI", "LW", "LH", "LB", "JALR"],
     "S": ["SW", "SH", "SB"],
     "B": ["BEQ", "BNE", "BLT", "BGE"],
     "U": ["LUI", "AUIPC"],
     "J": ["JAL"]}
-# funct3 Dictionary
-register_map = {
+register_to_binary_dict = {
 ("x0", "zero"):  "00000",
 ("x1", "ra"):    "00001",
 ("x2", "sp"):    "00010",
@@ -47,8 +46,8 @@ register_map = {
 
 
 
-instruction_info = {
-    # R-type Instructions
+instruction_info_main_dict = {
+    # for R-type
     "ADD":  {"opcode": "0110011", "funct3": "000", "funct7": "0000000"},
     "SUB":  {"opcode": "0110011", "funct3": "000", "funct7": "0100000"},
     "AND":  {"opcode": "0110011", "funct3": "111", "funct7": "0000000"},
@@ -61,7 +60,7 @@ instruction_info = {
     "DIV":  {"opcode": "0110011", "funct3": "100", "funct7": "0000001"},
     "REM":  {"opcode": "0110011", "funct3": "110", "funct7": "0000001"},
     
-    # I-type Instructions
+    # for I-type
     "ADDI":  {"opcode": "0010011", "funct3": "000", "funct7": None},
     "ANDI":  {"opcode": "0010011", "funct3": "111", "funct7": None},
     "ORI":   {"opcode": "0010011", "funct3": "110", "funct7": None},
@@ -74,127 +73,101 @@ instruction_info = {
     "LB":    {"opcode": "0000011", "funct3": "000", "funct7": None},
     "JALR":  {"opcode": "1100111", "funct3": "000", "funct7": None},
     
-    # S-type Instructions
+    # for S-type
     "SW":    {"opcode": "0100011", "funct3": "010", "funct7": None},
     "SH":    {"opcode": "0100011", "funct3": "001", "funct7": None},
     "SB":    {"opcode": "0100011", "funct3": "000", "funct7": None},
     
-    # B-type Instructions
+    # for B-type
     "BEQ":   {"opcode": "1100011", "funct3": "000", "funct7": None},
     "BNE":   {"opcode": "1100011", "funct3": "001", "funct7": None},
     "BLT":   {"opcode": "1100011", "funct3": "100", "funct7": None},
     "BGE":   {"opcode": "1100011", "funct3": "101", "funct7": None},
     
-    # U-type Instructions
+    # for -type 
     "LUI":   {"opcode": "0110111", "funct3": None, "funct7": None},
     "AUIPC": {"opcode": "0010111", "funct3": None, "funct7": None},
     
-    # J-type Instructions
+    # for J-type 
     "JAL":   {"opcode": "1101111", "funct3": None, "funct7": None},
 }
 
-def tokenize_instruction(line):
+def create_tokens_from_line(line):
  
     line = line.split("#")[0].strip()
-    if not line:  # Ignore empty lines
-        return None
 
-    # This is to handle offset values like 100(x7) 
-    line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line)
+    if not line:  
+        return None #Empty lines
+    
+    line = re.sub(r'(\d+)\((x\d+|a\d+|s\d+|t\d+|zero|sp|gp|tp|ra)\)', r'\1 \2', line) #for offsets like 100(x1) etc
 
-    # Split by space or comma
+    
     tokens = re.split(r'[,\s]+', line)
     
-    return tokens
+    return tokens #This is a list of important terms extracted from a line
 
-def get_instruction_type(tokens):
-    """
-    Determines the instruction type based on the instruction dictionary.
-    Example: ["ADDI", "x1", "x2", "10"] → "I"
-    """
+def instruction_type_func(tokens): #For determining type of instruction like I R etc
     if not tokens:
         return None
-    for inst_type, inst_list in instruction_dict.items():
-        for instr in tokens:
-            if instr.upper() in inst_list:
-                return inst_type
+    for type, list in instruction_types_list_dict.items():
+        for i in tokens:
+            if i.upper() in list:
+                return type
 
 
-def find_registers_binary(tokens):
-    """
-    Searches for register names in the token list and returns a list of their 5-bit binary values.
-    
-    Example:
-    tokens = ["ADDI", "x1", "x2", "10"] → ['00001', '00010']
-    tokens = ["LW", "a0", "100", "s1"] → ['01010', '10001']
-    """
+def convert_register_to_binary(tokens): #Registers in a token are first searched for then converted to binary
 
-    binary_values = []
+
+    binary_list = []
     
     for token in tokens:
-        token = token.lower()  # Normalize case
+        token = token.lower()  
         
-        # Check if token matches any key in register_map
-        for (x_name, abi_name), binary in register_map.items():
-            if token == x_name or token == abi_name:
-                binary_values.append(binary)
-                break  # Stop checking once a match is found
-    
-    return binary_values
 
-def format_instruction(instruction_type, opcode, funct3, funct7, rd_bin, rs1_bin, rs2_bin, immediate):
-    """
-    Formats an instruction into its correct binary representation.
+        for (x, abi), binary in register_to_binary_dict.items():
+            if token == x or token == abi: #search
+                binary_list.append(binary) #converted to binary
+                break  
     
-    Parameters:
-    - instruction_type (str): Instruction type (R, I, S, B, U, J).
-    - opcode (str): 7-bit opcode.
-    - funct3 (str): 3-bit function code (used for differentiation in I, S, B, R types).
-    - funct7 (str): 7-bit function code (used for R-type).
-    - rd (int): Destination register.
-    - rs1 (int): Source register 1.
-    - rs2 (int): Source register 2.
-    - immediate (int): Immediate value (if applicable).
-    
-    Returns:
-    - str: Full 32-bit binary instruction.
-    """
-    
+    return binary_list
 
-    if instruction_type == "R":
-        return f"{funct7}{rs2_bin}{rs1_bin}{funct3}{rd_bin}{opcode}"
+def format_instruction(type, opcode, funct3, funct7, rd, rs1, rs2, imm): #This returns encoding for a type of instruction
+
+
+    if type == "R":
+        return f"{funct7}{rs2}{rs1}{funct3}{rd}{opcode}"
     
-    elif instruction_type == "I":
-        imm_bin = to_signed_binary(immediate, 12)
-        return f"{imm_bin}{rs1_bin}{funct3}{rd_bin}{opcode}"
+    elif type == "I":
+        imm_bin = binary_to_signed_binary(imm, 12)
+        return f"{imm_bin}{rs1}{funct3}{rd}{opcode}"
     
-    elif instruction_type == "S":
-        imm_bin = to_signed_binary(immediate, 12)
-        return f"{imm_bin[:7]}{rs1_bin}{rs2_bin}{funct3}{imm_bin[7:]}{opcode}"
+    elif type == "S":
+        imm_bin = binary_to_signed_binary(imm, 12)
+        return f"{imm_bin[:7]}{rs1}{rs2}{funct3}{imm_bin[7:]}{opcode}"
     
-    elif instruction_type == "B":
-        imm_bin = to_signed_binary(immediate, 13)
-        return f"{imm_bin[0]}{imm_bin[2:8]}{rs2_bin}{rs1_bin}{funct3}{imm_bin[8:12]}{imm_bin[1]}{opcode}"
+    elif type == "B":
+        imm_bin = binary_to_signed_binary(imm, 13)
+        return f"{imm_bin[0]}{imm_bin[2:8]}{rs2}{rs1}{funct3}{imm_bin[8:12]}{imm_bin[1]}{opcode}"
     
-    elif instruction_type == "U":
-        imm_bin = to_signed_binary(immediate, 20)
-        return f"{imm_bin}{rd_bin}{opcode}"
+    elif type == "U":
+        imm_bin = binary_to_signed_binary(imm, 20)
+        return f"{imm_bin}{rd}{opcode}"
     
-    elif instruction_type == "J":
-        imm_bin = to_signed_binary(immediate, 21)
-        return f"{imm_bin[0]}{imm_bin[10:20]}{imm_bin[9]}{imm_bin[1:9]}{rd_bin}{opcode}"
+    elif type == "J":
+        imm_bin = binary_to_signed_binary(imm, 21)
+        return f"{imm_bin[0]}{imm_bin[10:20]}{imm_bin[9]}{imm_bin[1:9]}{rd}{opcode}"
     
     else:
-        return "Invalid Instruction Type"
+        return "Instruction Type is Invalid"
 
-def to_signed_binary(value, bits):
-    """Converts an integer to a signed two’s complement binary representation."""
+def binary_to_signed_binary(value, bits): #This simply converts a binary to signed 2's complement representation
+
     if value < 0:
-        value = (1 << bits) + value  # Two's complement conversion for negative numbers
-    return format(value, f'0{bits}b')  # Ensures correct bit width
+        value = (1 << bits) + value  
+    return format(value, f'0{bits}b')  
 
-def get_nearest_label_offset(lines, target_index):
-    register_names = {"zero", "ra", "sp", "gp", "tp", "t0", "t1", "t2", "s0", "s1", "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"}
+def get_nearest_label_offset(lines, target_index): #This is for label handling
+    global register_names_set
     
     tokenized_lines = [re.split(r'[\s,]+', line) for line in lines]
     label_positions = {}
@@ -208,101 +181,96 @@ def get_nearest_label_offset(lines, target_index):
     
     if target_index < len(tokenized_lines):
         tokens = tokenized_lines[target_index]
-        if tokens and tokens[-1] not in register_names and not tokens[-1].isdigit():
+        if tokens and tokens[-1] not in register_names_set and not tokens[-1].isdigit():
             label = tokens[-1]
             possible_positions = label_positions.get(label, [])
             
-            print("Target Label:", label)
-            print("Possible Positions:", possible_positions)
+            
+            
             
             if possible_positions:
                 nearest_position = min(possible_positions, key=lambda x: abs(x - target_index))  # Pick the closest label
-                print("Nearest Position:", nearest_position)
+                
                 return (nearest_position - target_index) * 4
     
-    return None  # Return None if no valid label is found
+    return None  #if no label is found
 
-def find_immediate(tokens, instr_type):
-    """
-    Extracts the immediate value if the instruction is not R-type.
-    Looks for any integer value in the tokens.
-    """
+def find_immediate_value(tokens, type): #This function finds the immediate value
 
-    target_index = next((i for i, line in enumerate(lines) if re.split(r'[ ,]+', line) == tokens), -1)
+
+    target = next((i for i, line in enumerate(lines) if re.split(r'[ ,]+', line) == tokens), -1)
     
 
 
 
-    if tokens and tokens[-1] not in register_names and not tokens[-1].lstrip('-').isdigit():
-        return get_nearest_label_offset(lines, target_index)
-    else:
+    if tokens and tokens[-1] not in register_names_set and not tokens[-1].lstrip('-').isdigit(): #label is involved
+        return get_nearest_label_offset(lines, target)
+    else: #label is not involved
         
-        if instr_type == "R":
-            return None  # R-type instructions do not have an immediate value
+        if type == "R":
+            return None  
 
         for token in tokens:
-            if token.lstrip('-').isdigit():  # Check if token is a number (allowing negative values)
-                return int(token)  # Convert to integer
-        return None  # No immediate found
-def find_instruction_info(tokens):
-    """
-    Searches for an instruction in the token list and returns its opcode, funct3, and funct7.
-    Example: ["ADDI", "x1", "x2", "10"] → {'opcode': '0010011', 'funct3': '000', 'funct7': None}
-    """
+            if token.lstrip('-').isdigit():  
+                return int(token)  
+        return None  
+    
+def func_for_instruction_info(tokens): #This function gets all the info for an instruction as you can see in the dictionary also
+
     if not tokens:
         return None
 
     for token in tokens:
-        token_upper = token.upper()  # Normalize case
-        if token_upper in instruction_info:
-            return instruction_info[token_upper]
+        token_u = token.upper()  
+        if token_u in instruction_info_main_dict:
+            return instruction_info_main_dict[token_u]
     
-    return None  # Return None if no instruction matches
-import re
-def process_file(input_filename, output_filename):
-    errors = []  # Store errors
+    return None  
+
+def process_file(input_file, output_filename): #main function of our program where we will use all the above defined functions to get to the final binary output
+    errors = []  
     binary_output = []
     
-    with open(input_filename, 'r') as file:
+    with open(input_file, 'r') as file:
         lines = file.readlines()
     
     for line_number, line in enumerate(lines, start=1):
-        try:
-            tokens = tokenize_instruction(line)
+        try: #In this we are basically getting all the data from a token(using above defined functions) into variables and finally getting its binary representation
+            tokens = create_tokens_from_line(line)
             if tokens:
-                instr_type = get_instruction_type(tokens)
-                dic = find_instruction_info(tokens)
+                instr_type = instruction_type_func(tokens)
+                dic = func_for_instruction_info(tokens)
                 
                 if dic is None:
                     errors.append(f"[Error at line {line_number}] Instruction not found: {tokens}")
                     continue
                 
                 opcode, funct3, funct7 = dic["opcode"], dic["funct3"], dic["funct7"]
-                immediate = find_immediate(tokens, instr_type)
-                r_list = find_registers_binary(tokens)
+                imm = find_immediate_value(tokens, instr_type)
+                r_list = convert_register_to_binary(tokens)
                 
                 if instr_type == "R":
                     binary_instr = format_instruction(instr_type, opcode, funct3, funct7, r_list[0], r_list[1], r_list[2], None)
                 elif instr_type == "I":
-                    binary_instr = format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, immediate)
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, r_list[0], r_list[1], None, imm)
                 elif instr_type == "S":
-                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate)
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm)
                 elif instr_type == "B":
-                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], immediate)
+                    binary_instr = format_instruction(instr_type, opcode, funct3, None, None, r_list[0], r_list[1], imm)
                 elif instr_type == "U":
-                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate)
+                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm)
                 elif instr_type == "J":
-                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, immediate)
+                    binary_instr = format_instruction(instr_type, opcode, None, None, r_list[0], None, None, imm)
                 
                 binary_output.append(binary_instr)
             else:
                 continue
-        except Exception as e:
+        except Exception as e: #error handling with line number
             errors.append(f"[Error at line {line_number}] {str(e)}")
-            break  # Stop processing further lines if an error occurs
+            break  
     
-    # Write to output file
-    with open(output_filename, 'w') as output_file:
+    
+    with open(output_filename, 'w') as output_file: #writing in the output file
         if errors:
             for error in errors:
                 output_file.write(error + '\n')
@@ -320,10 +288,10 @@ def read_file(filepath):
     return lines
            
 
-
-filename = input("Enter file name: ")
+#main executable body of our program
+filename = input("Enter input file name: ")
 lines=read_file(filename)
-# Example usage
-output_filename = "output.txt"  # Define the output file
+
+output_filename = input("Enter output file name: ")  
 process_file(filename, output_filename)
 
