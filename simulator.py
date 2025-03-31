@@ -106,8 +106,6 @@ process_file(input_filename, output_filename)
 print(f"Decoded instructions written to '{output_filename}' successfully.")
 
 
-#part 2
-
 import re
 
 # Global register dictionary initialized to 0, except sp (x2) = 380
@@ -145,13 +143,10 @@ def calculate_pc(pc, parts):
         return (registers[parts[2]] + int(parts[3])) & ~1
     return pc + 4  # Default case, move to next instruction
 
-
 def execute_instruction(instruction, pc):
     parts = re.split(r'[ ,\s]+', instruction)
     if detect_halt(parts):
         return None  # Signal to stop execution
-    
-    new_pc = calculate_pc(pc, parts)
     
     op = parts[0]
     if op == "add":
@@ -173,23 +168,26 @@ def execute_instruction(instruction, pc):
     elif op == "sw":
         memory[registers[parts[2]] + int(parts[3])] = registers[parts[1]]
     
-    # Ensure x0 remains 0
     registers["x0"] = 0
     
-    return new_pc
+    return calculate_pc(pc, parts)
 
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
     pc = 0
-    visited_addresses = {}  # Track execution count per address
+    visited_addresses = {}
 
     with open(output_file, "w") as file:
         while pc in address_map:
             instruction = address_map[pc]
+            new_pc = calculate_pc(pc, re.split(r'[ ,\s]+', instruction))
+            
+            decimal_values = f"{new_pc} " + " ".join(str(registers[f"x{i}"]) for i in range(32))
+            file.write(f"{decimal_values}\n")
+            
             new_pc = execute_instruction(instruction, pc)
-
-            # Track execution counts to detect infinite loops
+            
             if pc in visited_addresses:
                 visited_addresses[pc] += 1
                 if visited_addresses[pc] > 100:
@@ -197,13 +195,10 @@ def execute_program(input_file, output_file):
                     break
             else:
                 visited_addresses[pc] = 1
-
-            decimal_values = f"{pc + 4} " + " ".join(str(registers[f"x{i}"]) for i in range(32))
-            file.write(f"{decimal_values}\n")
-
+            
             if new_pc is None:
                 break  # Halt execution
-
+            
             pc = new_pc  # Move to the next instruction
 
 # Run program
