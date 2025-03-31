@@ -100,18 +100,29 @@ instruction_info = {
 
 # Run the program
 input_filename = input("Enter input file name: ")
-output_filename = input("Enter output file name: ")
+output_filename = "hello1.txt"
 process_file(input_filename, output_filename)
 
 print(f"Decoded instructions written to '{output_filename}' successfully.")
-
-
 import re
 
-# Global register dictionary initialized to 0, except sp (x2) = 380
+def to_binary(value):
+    """Converts an integer to a 32-bit binary string in two's complement form."""
+    return "0b" + format(value & 0xFFFFFFFF, '032b')
+
+# Initialize registers (x0 to x31), with x2 (sp) set to 380
 registers = {f"x{i}": 0 for i in range(32)}
 registers["x2"] = 380  # Stack pointer
-memory = {}  # Memory storage for lw/sw operations
+
+# Initialize memory from 0x00010000 to 0x0001007C (word-aligned addresses) with 0
+memory = {65536: 0, 65540: 0, 65544: 0, 65548: 0, 65552: 0, 65556: 0, 65560: 0, 65564: 0, 65568: 0, 65572: 0, 65576: 0, 65580: 0, 65584: 0, 65588: 0, 65592: 0, 65596: 0, 65600: 0, 65604: 0, 65608: 0, 65612: 0, 65616: 0, 65620: 0, 65624: 0, 65628: 0, 65632: 0, 65636: 0, 65640: 0, 65644: 0, 65648: 0, 65652: 0, 65656: 0, 65660: 0}
+print(memory)
+
+def get_available_memory():
+    for addr in memory:
+        if memory[addr] == 0:
+            return addr
+    return None
 
 def read_file(filepath):
     with open(filepath, 'r') as file:
@@ -138,17 +149,19 @@ def calculate_pc(pc, parts):
         registers[parts[1]] = pc + 4
         return pc + int(parts[2])
     elif op == "jalr":
-        if parts[1] != "x0":  # Prevent modifying x0
+        if parts[1] != "x0":
             registers[parts[1]] = pc + 4
         return (registers[parts[2]] + int(parts[3])) & ~1
-    return pc + 4  # Default case, move to next instruction
+    return pc + 4
 
 def execute_instruction(instruction, pc):
     parts = re.split(r'[ ,\s]+', instruction)
     if detect_halt(parts):
-        return None  # Signal to stop execution
-    
+        return None
+
+    new_pc = calculate_pc(pc, parts)
     op = parts[0]
+
     if op == "add":
         registers[parts[1]] = registers[parts[2]] + registers[parts[3]]
     elif op == "sub":
@@ -164,45 +177,38 @@ def execute_instruction(instruction, pc):
     elif op == "addi":
         registers[parts[1]] = registers[parts[2]] + int(parts[3])
     elif op == "lw":
-        registers[parts[1]] = memory.get(registers[parts[2]] + int(parts[3]), 0)
+        address = registers[parts[2]] + int(parts[3])
+        registers[parts[1]] = memory.get(address, 0)
     elif op == "sw":
-        memory[registers[parts[2]] + int(parts[3])] = registers[parts[1]]
-    
+        address = registers[parts[2]] + int(parts[3])
+        memory[address] = registers[parts[1]]
+
     registers["x0"] = 0
-    
-    return calculate_pc(pc, parts)
+    return new_pc
 
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
     pc = 0
-    visited_addresses = {}
+    output_lines = []
 
-    with open(output_file, "w") as file:
-        while pc in address_map:
-            instruction = address_map[pc]
-            new_pc = calculate_pc(pc, re.split(r'[ ,\s]+', instruction))
-            
-            decimal_values = f"{new_pc} " + " ".join(str(registers[f"x{i}"]) for i in range(32))
-            file.write(f"{decimal_values}\n")
-            
-            new_pc = execute_instruction(instruction, pc)
-            
-            if pc in visited_addresses:
-                visited_addresses[pc] += 1
-                if visited_addresses[pc] > 100:
-                    print(f"Potential infinite loop detected at address {pc}. Halting execution.")
-                    break
-            else:
-                visited_addresses[pc] = 1
-            
-            if new_pc is None:
-                break  # Halt execution
-            
-            pc = new_pc  # Move to the next instruction
+    while pc in address_map:
+        binary_values = [to_binary(pc)] + [to_binary(registers[f"x{i}"]) for i in range(32)]
+        formatted_values = '\n'.join([' '.join(binary_values[i:i+5]) for i in range(0, len(binary_values), 5)])
+        output_lines.append(formatted_values)
+        instruction = address_map[pc]
+        new_pc = execute_instruction(instruction, pc)
+        if new_pc is None:
+            output_lines.append(formatted_values)
+            break
+        pc = new_pc
 
-# Run program
-input_filename = input("Enter input file name: ")
+    for addr in sorted(memory.keys()):
+        output_lines.append(f"0x{addr:08X}:{to_binary(memory[addr])}")
+
+    write_file(output_file, output_lines)
+
+input_filename = "hello1.txt"
 output_filename = input("Enter output file name: ")
 execute_program(input_filename, output_filename)
-print(f"Register values written to '{output_filename}' successfully.")
+print(f"Binary register values and memory contents written to '{output_filename}' successfully.")
