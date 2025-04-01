@@ -11,7 +11,7 @@ if type == "sw": #etc
     write = True
     rd = Writedata
 
-    memory.values()[int (rd[1:])] = aluresult
+    memory["0x0001"+f"{int(rd[1:], 16):04X}"] = aluresult
 
 else:
     write = False
