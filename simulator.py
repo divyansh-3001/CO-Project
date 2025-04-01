@@ -97,7 +97,11 @@ def extract_immediate(binary_instr, instr_type):
     return "No immediate"
 
 def sign_extend(value, bits):
-    return int(value, 2) - (1 << bits) if value[0] == '1' else int(value, 2)
+    num = int(value, 2)  
+    if num & (1 << (bits - 1)): 
+        num -= (1 << bits) 
+    return num
+
 
 def match_instruction(instr_type, opcode, funct3, funct7):
     for instr, details in instruction_info.items():
