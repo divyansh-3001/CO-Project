@@ -15,3 +15,13 @@ if type == "sw": #etc
 
 else:
     write = False
+
+
+def writeback(type, aluresult, memory, PC):
+    if type == "lw":
+        return memory[aluresult] 
+
+    elif (type == "jal") or (type == "jalr"):
+        return PC + 4
+    else:
+        return aluresult
