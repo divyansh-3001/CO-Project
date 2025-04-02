@@ -27,3 +27,8 @@ def writeback(type, aluresult, memory, PC):
         return PC + 4
     else:
         return aluresult
+for i in range(0,len(memory.keys())):
+    p=memory[list(memory.keys())[i]]
+    print(f"{list(memory.keys())[i]} {p}")
+
+
