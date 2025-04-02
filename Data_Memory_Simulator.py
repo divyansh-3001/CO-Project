@@ -11,8 +11,9 @@ if type == "sw": #etc
     write = True
     rd = Writedata
     string_for_updating = str(hex((16 ** 4) + (4 * int(rd[1:]))))
-    string_for_updating = string_for_updating[0:2] + "000" + string_for_updating[2:]
-                              
+    
+    string_for_updating = string_for_updating[0:2] + "000" + string_for_updating[2:].upper()
+    print(string_for_updating)                   
     memory[string_for_updating] = aluresult
 
 else:
