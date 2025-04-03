@@ -1,5 +1,83 @@
 import re
 
+def read_file(filepath):
+    with open(filepath, 'r') as file:
+        return [line.strip() for line in file.readlines() if line.strip()]
+
+def write_file(filepath, lines):
+    with open(filepath, 'w') as file:
+        for line in lines:
+            file.write(line + '\n')
+
+def instruction_type(binary_instr):
+    opcode = binary_instr[-7:]
+    for instr_type, opcodes in opcode_dict.items():
+        if opcode in opcodes:
+            return instr_type
+    return None
+
+def decode_instruction(binary_instr):
+    instr_type = instruction_type(binary_instr)
+    opcode = binary_instr[-7:]
+    funct3 = binary_instr[17:20] if instr_type in {'R', 'I', 'S', 'B'} else None
+    funct7 = binary_instr[:7] if instr_type == 'R' else None
+    rd = binary_instr[20:25] if instr_type in {'R', 'I', 'U', 'J'} else None
+    rs1 = binary_instr[12:17] if instr_type in {'R', 'I', 'S', 'B'} else None
+    rs2 = binary_instr[7:12] if instr_type in {'R', 'S', 'B'} else None
+    imm = extract_immediate(binary_instr, instr_type)
+
+    decoded_instr = match_instruction(instr_type, opcode, funct3, funct7)
+    
+    if decoded_instr:
+        return format_decoded_instruction(decoded_instr, rd, rs1, rs2, imm)
+    
+    return "Unknown Instruction"
+
+def extract_immediate(binary_instr, instr_type):
+    if instr_type == 'I':  # Immediate for I-type
+        return sign_extend(binary_instr[:12], 12)
+    elif instr_type == 'S':  # Immediate for SW (S-type)
+        return sign_extend(binary_instr[:7] + binary_instr[20:25], 12)
+    elif instr_type == 'B':  # Immediate for BEQ/BNE (B-type)
+        return sign_extend(binary_instr[0] + binary_instr[24] + binary_instr[1:7] + binary_instr[20:24] + '0', 13)
+    elif instr_type == 'J':  # Immediate for JAL (J-type)
+        return sign_extend(binary_instr[0] + binary_instr[12:20] + binary_instr[11] + binary_instr[1:11] + '0', 21)
+    return "No immediate"
+
+def sign_extend(value, bits):
+    return int(value, 2) - (1 << bits) if value[0] == '1' else int(value, 2)
+
+def match_instruction(instr_type, opcode, funct3, funct7):
+    for instr, details in instruction_info.items():
+        if (details['opcode'] == opcode and 
+            (funct3 is None or details.get('funct3') == funct3) and 
+            (funct7 is None or details.get('funct7') == funct7)):
+            return instr
+    return "no_match_instruction"
+
+def format_decoded_instruction(instr, rd, rs1, rs2, imm):
+    if instr in {'ADD', 'SUB', 'AND', 'OR', 'SLT', 'SRL'}:
+        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {registers[rs2]}"
+    elif instr in {'LW'}:
+        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
+    elif instr in {'SW'}:
+        return f"{instr.lower()} {registers[rs2]}, {registers[rs1]}, {imm}"  # Imm last
+    elif instr in {'ADDI'}:
+        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
+    elif instr in {'JALR'}:
+        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
+    elif instr in {'BEQ', 'BNE'}:
+        return f"{instr.lower()} {registers[rs1]}, {registers[rs2]}, {imm}"  # Imm last
+    elif instr == 'JAL':
+        return f"{instr.lower()} {registers[rd]}, {imm}"  # Imm last
+    return "Unknown Instruction"
+
+def process_file(input_file, output_file):
+    binary_instructions = read_file(input_file)
+    decoded_instructions = [decode_instruction(instr) for instr in binary_instructions]
+    write_file(output_file, decoded_instructions)
+
+registers = {format(i, '05b'): f"x{i}" for i in range(32)}
 opcode_dict = {
     'R': ['0110011'], 'I': ['0010011', '0000011', '1100111'], 
     'S': ['0100011'], 'B': ['1100011'], 'U': ['0110111'], 'J': ['1101111']
@@ -20,201 +98,75 @@ instruction_info = {
     "JAL": {"opcode": "1101111"}
 }
 
-# Function to read binary instructions from a file
-def read_file(filepath):
-    with open(filepath, 'r') as file:
-        return [line.strip() for line in file.readlines() if line.strip()]
-        
-# Function to write processed output to a file
-def write_file(filepath, lines):
-    with open(filepath, 'w') as file:
-        for line in lines:
-            file.write(line + '\n')
-
-
-# Function to determine the instruction type based on the opcode
-def instruction_type(binary_instr):
-    opcode = binary_instr[-7:]
-    for instr_type, opcodes in opcode_dict.items():
-        if opcode in opcodes:
-            return instr_type
-    print("Invalid opcode")
-    return None
-
-# Function to decode binary instructions
-def decode_instruction(binary_instr):
-    
-    instr_type = instruction_type(binary_instr)
-    opcode = binary_instr[-7:]
-    
-    if instr_type in {'R', 'I', 'S', 'B'}:
-        funct3 = binary_instr[17:20]
-    else:
-        funct3 = None
-
-    
-    if instr_type == 'R':
-        funct7 = binary_instr[:7]
-    else:
-        funct7 = None
-
-    
-    if instr_type in {'R', 'I', 'U', 'J'}:
-        rd = binary_instr[20:25]
-    else:
-        rd = None
-
-   
-    if instr_type in {'R', 'I', 'S', 'B'}:
-        rs1 = binary_instr[12:17]
-    else:
-        rs1 = None
-
-    
-    if instr_type in {'R', 'S', 'B'}:
-        rs2 = binary_instr[7:12]
-    else:
-        rs2 = None
-
-   
-    imm = extract_immediate(binary_instr, instr_type)
-
-    
-    decoded_instr = match_instruction(instr_type, opcode, funct3, funct7)
-
-  
-    if decoded_instr:
-        return format_decoded_instruction(decoded_instr, rd, rs1, rs2, imm)
-    
-    return "Unknown Instruction"
-
-# Function to extract immediate values from different instruction types
-def extract_immediate(binary_instr, instr_type):
-    if instr_type == 'I':  
-        return sign_extend(binary_instr[:12], 12)
-    
-    elif instr_type == 'S': 
-        return sign_extend(binary_instr[:7] + binary_instr[20:25], 12)
-    
-    elif instr_type == 'B':  
-        return sign_extend(binary_instr[0] + binary_instr[24] + binary_instr[1:7] + binary_instr[20:24] + '0', 13)
-    
-    elif instr_type == 'J': 
-        return sign_extend(binary_instr[0] + binary_instr[12:20] + binary_instr[11] + binary_instr[1:11] + '0', 21)
-    return "No immediate"
-
-# Function to sign-extend binary numbers
-def sign_extend(value, bits):
-    num = int(value, 2)  
-    if num & (1 << (bits - 1)): 
-        num -= (1 << bits) 
-    return num
-
-# Function to match the decoded instruction with known instructions
-def match_instruction(instr_type, opcode, funct3, funct7):
-    for instr, details in instruction_info.items():
-        if (details['opcode'] == opcode and 
-            (funct3 is None or details.get('funct3') == funct3) and 
-            (funct7 is None or details.get('funct7') == funct7)):
-            return instr
-    print(f"Invalid combination of {{opcode: {opcode}, funct3: {funct3}, funct7: {funct7}}}")
-    return None
-
-# Function to format decoded instructions for output
-def format_decoded_instruction(instr, rd, rs1, rs2, imm):
-    if instr in {'ADD', 'SUB', 'AND', 'OR', 'SLT', 'SRL'}:
-        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {registers[rs2]}"
-    elif instr in {'LW'}:
-        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
-    elif instr in {'SW'}:
-        return f"{instr.lower()} {registers[rs2]}, {registers[rs1]}, {imm}"  # Imm last
-    elif instr in {'ADDI'}:
-        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
-    elif instr in {'JALR'}:
-        return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {imm}"  # Imm last
-    elif instr in {'BEQ', 'BNE'}:
-        return f"{instr.lower()} {registers[rs1]}, {registers[rs2]}, {imm}"  # Imm last
-    elif instr == 'JAL':
-        return f"{instr.lower()} {registers[rd]}, {imm}"  # Imm last
-    return "Unknown Instruction"
-
-# Function to process a file containing binary instructions and decode them
-def process_file(input_file, output_file):
-    binary_instructions = read_file(input_file)
-    decoded_instructions = [decode_instruction(instr) for instr in binary_instructions]
-    write_file(output_file, decoded_instructions)
-    
-    
+# Run the program
 input_filename = input("Enter input file name: ")
 output_filename = "hello1.txt"
 process_file(input_filename, output_filename)
 
 print(f"Decoded instructions written to '{output_filename}' successfully.")
 import re
+import re
 
-def to_binary(value):
-    if value < 0:
-        value = (1 << 32) + value  # Convert negative value to 32-bit two's complement
-    return "0b" + f"{value:032b}"
-
-
+import re
 
 # Initialize registers (x0 to x31), with x2 (sp) set to 380
 registers = {f"x{i}": 0 for i in range(32)}
 registers["x2"] = 380  # Stack pointer
 
-# availaible memory dictionary 
-memory = {mem: 0 for mem in range(0x00010000, 0x00010080, 4)}
+import re
 
+# Initialize registers (x0 to x31), with x2 (sp) set to 380
+registers = {f"x{i}": 0 for i in range(32)}
+registers["x2"] = 380  # Stack pointer
 
-def get_available_memory():#function to check the next availaible memory for sw operand to store in 
+# Initialize memory from 0x00010000 to 0x0001007C (word-aligned addresses) with 0
+memory = {addr: 0 for addr in range(0x00010000, 0x00010080, 4)}
+
+# Function to find the first available memory location
+def get_available_memory():
     for addr in memory:
-        if memory[addr] == 0:
+        if memory[addr] == 0:  # Unused memory location
             return addr
-    return None
+    return None  # No available memory
 
+def read_file(filepath):
+    with open(filepath, 'r') as file:
+        return [line.strip() for line in file.readlines() if line.strip()]
 
-#Assigns memory addresses to instructions, assuming each instruction takes 4 bytes.
+def write_file(filepath, lines):
+    with open(filepath, 'w') as file:
+        for line in lines:
+            file.write(line + '\n')
+
 def assign_addresses(instructions):
     return {i * 4: instructions[i] for i in range(len(instructions))}
 
-#Detects if the instruction is a halt condition (beq x0, x0, 0)
 def detect_halt(parts):
     return parts[0] == "beq" and parts[1] == "x0" and parts[2] == "x0" and parts[3] == "0"
 
-#Calculates the next program counter (PC) value based on the instruction type.
 def calculate_pc(pc, parts):
-    new_pc = None
     op = parts[0]
     if op == "beq" and registers[parts[1]] == registers[parts[2]]:
-        new_pc = pc + int(parts[3])
+        return pc + int(parts[3])
     elif op == "bne" and registers[parts[1]] != registers[parts[2]]:
-        new_pc = pc + int(parts[3])
+        return pc + int(parts[3])
     elif op == "jal":
         registers[parts[1]] = pc + 4
-        new_pc = pc + int(parts[2])
+        return pc + int(parts[2])
     elif op == "jalr":
         if parts[1] != "x0":
             registers[parts[1]] = pc + 4
-        new_pc = (registers[parts[2]] + int(parts[3])) & ~1
-    else:
-        new_pc = pc + 4
-    
-    if new_pc % 4 != 0:
-        print(f"Error: PC update to address {new_pc}, which is not a multiple of four")
-        return None
-    return new_pc
+        return (registers[parts[2]] + int(parts[3])) & ~1
+    return pc + 4  # Default: move to next instruction
 
-#Executes a single instruction and updates registers/memory as needed.
 def execute_instruction(instruction, pc):
     parts = re.split(r'[ ,\s]+', instruction)
     if detect_halt(parts):
-        return None
+        return None  # Stop execution
+
     new_pc = calculate_pc(pc, parts)
-    if new_pc is None:
-        return None
-    
     op = parts[0]
+
     if op == "add":
         registers[parts[1]] = registers[parts[2]] + registers[parts[3]]
     elif op == "sub":
@@ -231,60 +183,61 @@ def execute_instruction(instruction, pc):
         registers[parts[1]] = registers[parts[2]] + int(parts[3])
     elif op == "lw":
         address = registers[parts[2]] + int(parts[3])
-        if address < 0x00010000 or address > 0x0001007C:
-            print(f"Error: Invalid address to read memory from:{hex(address)}")
-            return None
-        registers[parts[1]] = memory.get(address, 0)
+        if address not in memory:  # If address is not in memory, assign first available memory
+            available_addr = get_available_memory()
+            if available_addr is not None:
+                memory[available_addr] = 0  # Clear old location before reusing
+                memory[address] = 0  # Initialize new location
+        registers[parts[1]] = memory.get(address, 0)  # Load value from memory
     elif op == "sw":
         address = registers[parts[2]] + int(parts[3])
-        if address < 0x00010000 or address > 0x0001007C:
-            print(f"Invalid address to read memory from: {hex(address)}")
-            return None
-        memory[address] = registers[parts[1]]
-    
+        if address not in memory:  # If address is not in memory, assign first available memory
+            available_addr = get_available_memory()
+            if available_addr is not None:
+                memory[available_addr] = 0  # Clear old location before reusing
+                memory[address] = 0  # Initialize new location
+        memory[address] = registers[parts[1]]  # Store value into memory
+
     registers["x0"] = 0  # x0 is always 0
     return new_pc
 
-#Executes a program from a file and writes the final register and memory states.
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
-
     pc = 0
     output_lines = []
+    first_execution = True  # Track if it's the first instruction execution
 
     while pc in address_map:
-        binary_values = [to_binary(pc)]
-        for i in range(32):  
-            binary_values.append(to_binary(registers[f"x{i}"]))
-            
-        formatted_values = []
-        for i in range(0, len(binary_values), 5):
-            formatted_values.append(' '.join(binary_values[i:i+5]))
+        if not first_execution:  # Skip first execution (pc = 0)
+            # Write register values to output
+            decimal_values = f"{pc} " + " ".join(str(registers[f"x{i}"]) for i in range(32))
+            output_lines.append(decimal_values)
 
-        output_lines.append('\n'.join(formatted_values))
-
+        first_execution = False  # Mark first execution as done
         
+        # Execute instruction and calculate next PC
         instruction = address_map[pc]
         new_pc = execute_instruction(instruction, pc)
 
-       
-        if new_pc is None:
-            output_lines.append('\n'.join(formatted_values))
+        if new_pc is None:  # If halt detected, repeat last line and stop
+            output_lines.append(decimal_values)
             break
 
-       
-        pc = new_pc
+        pc = new_pc  # Move to next instruction
 
-    
+    # Write memory contents to output
+    # Write only memory contents within the allowed range
     for addr in sorted(memory.keys()):
-        output_lines.append(f"0x{addr:08X}:{to_binary(memory[addr])}")
+        if 0x00010000 <= addr <= 0x0001007C:  # Only include addresses within this range
+            output_lines.append(f"0x{addr:08X}:{to_binary_32bit(memory[addr])} ")
 
-   
+
+    # Write all the output to the file
     write_file(output_file, output_lines)
 
-
+# Run program
 input_filename = "hello1.txt"
 output_filename = input("Enter output file name: ")
 execute_program(input_filename, output_filename)
-print(f"Binary register values and memory contents written to '{output_filename}' successfully.")
+print(f"Register values and memory contents written to '{output_filename}' successfully.")
