@@ -19,15 +19,20 @@ instruction_info = {
     "BNE": {"opcode": "1100011", "funct3": "001"},
     "JAL": {"opcode": "1101111"}
 }
+
+# Function to read binary instructions from a file
 def read_file(filepath):
     with open(filepath, 'r') as file:
         return [line.strip() for line in file.readlines() if line.strip()]
-
+        
+# Function to write processed output to a file
 def write_file(filepath, lines):
     with open(filepath, 'w') as file:
         for line in lines:
             file.write(line + '\n')
 
+
+# Function to determine the instruction type based on the opcode
 def instruction_type(binary_instr):
     opcode = binary_instr[-7:]
     for instr_type, opcodes in opcode_dict.items():
@@ -35,6 +40,8 @@ def instruction_type(binary_instr):
             return instr_type
     print("Invalid opcode")
     return None
+
+# Function to decode binary instructions
 def decode_instruction(binary_instr):
     
     instr_type = instruction_type(binary_instr)
@@ -81,7 +88,7 @@ def decode_instruction(binary_instr):
     
     return "Unknown Instruction"
 
-
+# Function to extract immediate values from different instruction types
 def extract_immediate(binary_instr, instr_type):
     if instr_type == 'I':  
         return sign_extend(binary_instr[:12], 12)
@@ -96,13 +103,14 @@ def extract_immediate(binary_instr, instr_type):
         return sign_extend(binary_instr[0] + binary_instr[12:20] + binary_instr[11] + binary_instr[1:11] + '0', 21)
     return "No immediate"
 
+# Function to sign-extend binary numbers
 def sign_extend(value, bits):
     num = int(value, 2)  
     if num & (1 << (bits - 1)): 
         num -= (1 << bits) 
     return num
 
-
+# Function to match the decoded instruction with known instructions
 def match_instruction(instr_type, opcode, funct3, funct7):
     for instr, details in instruction_info.items():
         if (details['opcode'] == opcode and 
@@ -112,6 +120,7 @@ def match_instruction(instr_type, opcode, funct3, funct7):
     print(f"Invalid combination of {{opcode: {opcode}, funct3: {funct3}, funct7: {funct7}}}")
     return None
 
+# Function to format decoded instructions for output
 def format_decoded_instruction(instr, rd, rs1, rs2, imm):
     if instr in {'ADD', 'SUB', 'AND', 'OR', 'SLT', 'SRL'}:
         return f"{instr.lower()} {registers[rd]}, {registers[rs1]}, {registers[rs2]}"
@@ -129,6 +138,7 @@ def format_decoded_instruction(instr, rd, rs1, rs2, imm):
         return f"{instr.lower()} {registers[rd]}, {imm}"  # Imm last
     return "Unknown Instruction"
 
+# Function to process a file containing binary instructions and decode them
 def process_file(input_file, output_file):
     binary_instructions = read_file(input_file)
     decoded_instructions = [decode_instruction(instr) for instr in binary_instructions]
@@ -164,13 +174,15 @@ def get_available_memory():#function to check the next availaible memory for sw 
     return None
 
 
-
+#Assigns memory addresses to instructions, assuming each instruction takes 4 bytes.
 def assign_addresses(instructions):
     return {i * 4: instructions[i] for i in range(len(instructions))}
 
+#Detects if the instruction is a halt condition (beq x0, x0, 0)
 def detect_halt(parts):
     return parts[0] == "beq" and parts[1] == "x0" and parts[2] == "x0" and parts[3] == "0"
 
+#Calculates the next program counter (PC) value based on the instruction type.
 def calculate_pc(pc, parts):
     new_pc = None
     op = parts[0]
@@ -193,6 +205,7 @@ def calculate_pc(pc, parts):
         return None
     return new_pc
 
+#Executes a single instruction and updates registers/memory as needed.
 def execute_instruction(instruction, pc):
     parts = re.split(r'[ ,\s]+', instruction)
     if detect_halt(parts):
@@ -232,7 +245,7 @@ def execute_instruction(instruction, pc):
     registers["x0"] = 0  # x0 is always 0
     return new_pc
 
-
+#Executes a program from a file and writes the final register and memory states.
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
