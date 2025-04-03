@@ -7,7 +7,7 @@ def read_file(filepath):
 def write_file(filepath, lines):
     with open(filepath, 'w') as file:
         for line in lines:
-            file.write(line + '\n')
+            file.write(line + '\n')  
 
 def instruction_type(binary_instr):
     opcode = binary_instr[-7:]
@@ -104,15 +104,9 @@ output_filename = "hello1.txt"
 process_file(input_filename, output_filename)
 
 print(f"Decoded instructions written to '{output_filename}' successfully.")
-import re
-import re
 
-import re
 
-# Initialize registers (x0 to x31), with x2 (sp) set to 380
-registers = {f"x{i}": 0 for i in range(32)}
-registers["x2"] = 380  # Stack pointer
-
+#part 2
 import re
 
 # Initialize registers (x0 to x31), with x2 (sp) set to 380
@@ -120,7 +114,41 @@ registers = {f"x{i}": 0 for i in range(32)}
 registers["x2"] = 380  # Stack pointer
 
 # Initialize memory from 0x00010000 to 0x0001007C (word-aligned addresses) with 0
-memory = {addr: 0 for addr in range(0x00010000, 0x00010080, 4)}
+memory = {
+    0x00010000: 0,
+    0x00010004: 0,
+    0x00010008: 0,
+    0x0001000C: 0,
+    0x00010010: 0,
+    0x00010014: 0,
+    0x00010018: 0,
+    0x0001001C: 0,
+    0x00010020: 0,
+    0x00010024: 0,
+    0x00010028: 0,
+    0x0001002C: 0,
+    0x00010030: 0,
+    0x00010034: 0,
+    0x00010038: 0,
+    0x0001003C: 0,
+    0x00010040: 0,
+    0x00010044: 0,
+    0x00010048: 0,
+    0x0001004C: 0,
+    0x00010050: 0,
+    0x00010054: 0,
+    0x00010058: 0,
+    0x0001005C: 0,
+    0x00010060: 0,
+    0x00010064: 0,
+    0x00010068: 0,
+    0x0001006C: 0,
+    0x00010070: 0,
+    0x00010074: 0,
+    0x00010078: 0,
+    0x0001007C: 0
+}
+
 
 # Function to find the first available memory location
 def get_available_memory():
@@ -133,10 +161,7 @@ def read_file(filepath):
     with open(filepath, 'r') as file:
         return [line.strip() for line in file.readlines() if line.strip()]
 
-def write_file(filepath, lines):
-    with open(filepath, 'w') as file:
-        for line in lines:
-            file.write(line + '\n')
+
 
 def assign_addresses(instructions):
     return {i * 4: instructions[i] for i in range(len(instructions))}
@@ -158,6 +183,10 @@ def calculate_pc(pc, parts):
             registers[parts[1]] = pc + 4
         return (registers[parts[2]] + int(parts[3])) & ~1
     return pc + 4  # Default: move to next instruction
+
+def to_binary_32bit(value):
+    """Convert an integer to a signed 32-bit two's complement binary representation."""
+    return "0b" + format(value & 0xFFFFFFFF, '032b')
 
 def execute_instruction(instruction, pc):
     parts = re.split(r'[ ,\s]+', instruction)
@@ -183,22 +212,22 @@ def execute_instruction(instruction, pc):
         registers[parts[1]] = registers[parts[2]] + int(parts[3])
     elif op == "lw":
         address = registers[parts[2]] + int(parts[3])
-        if address not in memory:  # If address is not in memory, assign first available memory
+        if address not in memory:  
             available_addr = get_available_memory()
             if available_addr is not None:
-                memory[available_addr] = 0  # Clear old location before reusing
-                memory[address] = 0  # Initialize new location
-        registers[parts[1]] = memory.get(address, 0)  # Load value from memory
+                memory[address] = memory[available_addr]
+                memory[available_addr] = 0 
+        registers[parts[1]] = memory.get(address, 0)  
     elif op == "sw":
         address = registers[parts[2]] + int(parts[3])
-        if address not in memory:  # If address is not in memory, assign first available memory
+        if address not in memory:  
             available_addr = get_available_memory()
             if available_addr is not None:
-                memory[available_addr] = 0  # Clear old location before reusing
-                memory[address] = 0  # Initialize new location
-        memory[address] = registers[parts[1]]  # Store value into memory
+                memory[address] = memory[available_addr]  
+                memory[available_addr] = 0  
+        memory[address] = registers[parts[1]]  
 
-    registers["x0"] = 0  # x0 is always 0
+    registers["x0"] = 0  
     return new_pc
 
 def execute_program(input_file, output_file):
@@ -210,9 +239,9 @@ def execute_program(input_file, output_file):
 
     while pc in address_map:
         if not first_execution:  # Skip first execution (pc = 0)
-            # Write register values to output
-            decimal_values = f"{pc} " + " ".join(str(registers[f"x{i}"]) for i in range(32))
-            output_lines.append(decimal_values)
+            # Convert PC and registers to 32-bit two's complement binary format
+            binary_values = f"{to_binary_32bit(pc)} " + " ".join(to_binary_32bit(registers[f"x{i}"]) for i in range(32)) + " "
+            output_lines.append(binary_values)
 
         first_execution = False  # Mark first execution as done
         
@@ -221,13 +250,13 @@ def execute_program(input_file, output_file):
         new_pc = execute_instruction(instruction, pc)
 
         if new_pc is None:  # If halt detected, repeat last line and stop
-            output_lines.append(decimal_values)
+            output_lines.append(binary_values)
             break
 
         pc = new_pc  # Move to next instruction
 
     # Write memory contents to output
-    # Write only memory contents within the allowed range
+# Write only memory contents within the allowed range
     for addr in sorted(memory.keys()):
         if 0x00010000 <= addr <= 0x0001007C:  # Only include addresses within this range
             output_lines.append(f"0x{addr:08X}:{to_binary_32bit(memory[addr])} ")
