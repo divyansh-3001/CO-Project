@@ -35,8 +35,8 @@ def instruction_type(binary_instr):
             return instr_type
     print("Invalid opcode")
     return None
-def decode_instruction(binary_instr):
     
+def decode_instruction(binary_instr):
     instr_type = instruction_type(binary_instr)
     opcode = binary_instr[-7:]
     
@@ -44,41 +44,33 @@ def decode_instruction(binary_instr):
         funct3 = binary_instr[17:20]
     else:
         funct3 = None
-
     
     if instr_type == 'R':
         funct7 = binary_instr[:7]
     else:
         funct7 = None
 
-    
     if instr_type in {'R', 'I', 'U', 'J'}:
         rd = binary_instr[20:25]
     else:
         rd = None
-
-   
+        
     if instr_type in {'R', 'I', 'S', 'B'}:
         rs1 = binary_instr[12:17]
     else:
         rs1 = None
-
-    
+        
     if instr_type in {'R', 'S', 'B'}:
         rs2 = binary_instr[7:12]
     else:
         rs2 = None
-
-   
+        
     imm = extract_immediate(binary_instr, instr_type)
-
     
     decoded_instr = match_instruction(instr_type, opcode, funct3, funct7)
 
-  
     if decoded_instr:
         return format_decoded_instruction(decoded_instr, rd, rs1, rs2, imm)
-    
     return "Unknown Instruction"
 
 
@@ -99,7 +91,7 @@ def extract_immediate(binary_instr, instr_type):
 def sign_extend(value, bits):
     num = int(value, 2)  
     if num & (1 << (bits - 1)): 
-        num -= (1 << bits) 
+        num =num- (1 << bits) 
     return num
 
 
@@ -228,14 +220,12 @@ def execute_instruction(instruction, pc):
     
     registers["x0"] = 0  # x0 is always 0
     return new_pc
-
-
+    
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
     pc = 0
     output_lines = []
-
     while pc in address_map:
         binary_values = [to_binary(pc)] + [to_binary(registers[f"x{i}"]) for i in range(32)]
         formatted_values = '\n'.join([' '.join(binary_values[i:i+5]) for i in range(0, len(binary_values), 5)])
