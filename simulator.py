@@ -35,8 +35,8 @@ def instruction_type(binary_instr):
             return instr_type
     print("Invalid opcode")
     return None
-    
 def decode_instruction(binary_instr):
+    
     instr_type = instruction_type(binary_instr)
     opcode = binary_instr[-7:]
     
@@ -44,33 +44,41 @@ def decode_instruction(binary_instr):
         funct3 = binary_instr[17:20]
     else:
         funct3 = None
+
     
     if instr_type == 'R':
         funct7 = binary_instr[:7]
     else:
         funct7 = None
 
+    
     if instr_type in {'R', 'I', 'U', 'J'}:
         rd = binary_instr[20:25]
     else:
         rd = None
-        
+
+   
     if instr_type in {'R', 'I', 'S', 'B'}:
         rs1 = binary_instr[12:17]
     else:
         rs1 = None
-        
+
+    
     if instr_type in {'R', 'S', 'B'}:
         rs2 = binary_instr[7:12]
     else:
         rs2 = None
-        
+
+   
     imm = extract_immediate(binary_instr, instr_type)
+
     
     decoded_instr = match_instruction(instr_type, opcode, funct3, funct7)
 
+  
     if decoded_instr:
         return format_decoded_instruction(decoded_instr, rd, rs1, rs2, imm)
+    
     return "Unknown Instruction"
 
 
@@ -91,7 +99,7 @@ def extract_immediate(binary_instr, instr_type):
 def sign_extend(value, bits):
     num = int(value, 2)  
     if num & (1 << (bits - 1)): 
-        num =num- (1 << bits) 
+        num -= (1 << bits) 
     return num
 
 
@@ -135,16 +143,19 @@ print(f"Decoded instructions written to '{output_filename}' successfully.")
 import re
 
 def to_binary(value):
-    """Converts an integer to a 32-bit binary string in two's complement form."""
-    return "0b" + format(value & 0xFFFFFFFF, '032b')
+    if value < 0:
+        value = (1 << 32) + value  # Convert negative value to 32-bit two's complement
+    return "0b" + f"{value:032b}"
+
+
 
 # Initialize registers (x0 to x31), with x2 (sp) set to 380
 registers = {f"x{i}": 0 for i in range(32)}
 registers["x2"] = 380  # Stack pointer
 
-# Initialize memory from 0x00010000 to 0x0001007C (word-aligned addresses) with 0
+# availaible memory dictionary 
 memory = {mem: 0 for mem in range(0x00010000, 0x00010080, 4)}
-print(memory)
+
 
 def get_available_memory():#function to check the next availaible memory for sw operand to store in 
     for addr in memory:
@@ -208,39 +219,57 @@ def execute_instruction(instruction, pc):
     elif op == "lw":
         address = registers[parts[2]] + int(parts[3])
         if address < 0x00010000 or address > 0x0001007C:
-            print(f"Error: Memory read from invalid address {hex(address)}")
+            print(f"Error: Invalid address to read memory from:{hex(address)}")
             return None
         registers[parts[1]] = memory.get(address, 0)
     elif op == "sw":
         address = registers[parts[2]] + int(parts[3])
         if address < 0x00010000 or address > 0x0001007C:
-            print(f"Error: Memory write to invalid address {hex(address)}")
+            print(f"Invalid address to read memory from: {hex(address)}")
             return None
         memory[address] = registers[parts[1]]
     
     registers["x0"] = 0  # x0 is always 0
     return new_pc
-    
+
+
 def execute_program(input_file, output_file):
     instructions = read_file(input_file)
     address_map = assign_addresses(instructions)
+
     pc = 0
     output_lines = []
+
     while pc in address_map:
-        binary_values = [to_binary(pc)] + [to_binary(registers[f"x{i}"]) for i in range(32)]
-        formatted_values = '\n'.join([' '.join(binary_values[i:i+5]) for i in range(0, len(binary_values), 5)])
-        output_lines.append(formatted_values)
+        binary_values = [to_binary(pc)]
+        for i in range(32):  
+            binary_values.append(to_binary(registers[f"x{i}"]))
+            
+        formatted_values = []
+        for i in range(0, len(binary_values), 5):
+            formatted_values.append(' '.join(binary_values[i:i+5]))
+
+        output_lines.append('\n'.join(formatted_values))
+
+        
         instruction = address_map[pc]
         new_pc = execute_instruction(instruction, pc)
+
+       
         if new_pc is None:
-            output_lines.append(formatted_values)
+            output_lines.append('\n'.join(formatted_values))
             break
+
+       
         pc = new_pc
 
+    
     for addr in sorted(memory.keys()):
         output_lines.append(f"0x{addr:08X}:{to_binary(memory[addr])}")
 
+   
     write_file(output_file, output_lines)
+
 
 input_filename = "hello1.txt"
 output_filename = input("Enter output file name: ")
