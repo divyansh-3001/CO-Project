@@ -1,3 +1,32 @@
+registers = {format(i, '05b'): f"x{i}" for i in range(32)}
+opcode_dict = {
+    'R': ['0110011'], 'I': ['0010011', '0000011', '1100111'], 
+    'S': ['0100011'], 'B': ['1100011'], 'U': ['0110111'], 'J': ['1101111']
+}
+instruction_info = {
+    "ADD": {"opcode": "0110011", "funct3": "000", "funct7": "0000000"},
+    "SUB": {"opcode": "0110011", "funct3": "000", "funct7": "0100000"},
+    "AND": {"opcode": "0110011", "funct3": "111", "funct7": "0000000"},
+    "OR": {"opcode": "0110011", "funct3": "110", "funct7": "0000000"},
+    "SLT": {"opcode": "0110011", "funct3": "010", "funct7": "0000000"},
+    "SRL": {"opcode": "0110011", "funct3": "101", "funct7": "0000000"},
+    "LW": {"opcode": "0000011", "funct3": "010"},
+    "SW": {"opcode": "0100011", "funct3": "010"},
+    "ADDI": {"opcode": "0010011", "funct3": "000"},
+    "JALR": {"opcode": "1100111", "funct3": "000"},
+    "BEQ": {"opcode": "1100011", "funct3": "000"},
+    "BNE": {"opcode": "1100011", "funct3": "001"},
+    "JAL": {"opcode": "1101111"}
+}
+
+
+riscv_register = {f"x{i}": 0 for i in range(32)}
+riscv_register["x2"] = 380  # Stack pointer
+
+
+memory = {
+    0x00010000 + i * 4: 0 for i in range(32)
+}
 import re
 
 def read_file(filepath):
@@ -34,7 +63,7 @@ def decode_instruction(binary_instr):
 
     decoded_instr = match_instruction(instr_type, opcode, funct3, funct7)
     
-    # Check for invalid combination of opcode, funct3, funct7
+    # Check for invalid combinations of opcode, funct3, funct7
     if decoded_instr == "no_match_instruction":
         raise ValueError(f"Error: Invalid combination of opcode={opcode}, funct3={funct3}, funct7={funct7}")
     
@@ -44,18 +73,24 @@ def decode_instruction(binary_instr):
     return "Unknown Instruction"
 
 def extract_immediate(binary_instr, instr_type):
-    if instr_type == 'I':  # Immediate for I-type
+    if instr_type == 'I': 
         return sign_extend(binary_instr[:12], 12)
-    elif instr_type == 'S':  # Immediate for SW
+    elif instr_type == 'S':  
         return sign_extend(binary_instr[:7] + binary_instr[20:25], 12)
-    elif instr_type == 'B':  # Immediate for BEQ/BNE 
+    elif instr_type == 'B': 
         return sign_extend(binary_instr[0] + binary_instr[24] + binary_instr[1:7] + binary_instr[20:24] + '0', 13)
-    elif instr_type == 'J':  # Immediate for JAL
+    elif instr_type == 'J': 
         return sign_extend(binary_instr[0] + binary_instr[12:20] + binary_instr[11] + binary_instr[1:11] + '0', 21)
     return "No immediate"
 
 def sign_extend(value, bits):
-    return int(value, 2) - (1 << bits) if value[0] == '1' else int(value, 2)
+    num = int(value, 2) 
+    
+    if value[0] == '1':
+        num -= (1 << bits)  
+    
+    return num
+
 
 def match_instruction(instr_type, opcode, funct3, funct7):
     for instr, details in instruction_info.items():
@@ -87,7 +122,7 @@ def detect_halt(parts):
 
 def calculate_pc(pc, parts):
     op = parts[0]
-    new_pc = pc + 4  # Default: move to next instruction
+    new_pc = pc + 4  #  move to next instruction if there is offset value
     
     if op == "beq" and riscv_register[parts[1]] == riscv_register[parts[2]]:
         new_pc = pc + int(parts[3])
@@ -101,7 +136,7 @@ def calculate_pc(pc, parts):
             riscv_register[parts[1]] = pc + 4
         new_pc = (riscv_register[parts[2]] + int(parts[3])) & ~1
     
-    # Check if PC is aligned to 4 bytes
+
     if new_pc % 4 != 0:
         raise ValueError(f"Error: PC update to address {new_pc} is not a multiple of four")
         
@@ -176,10 +211,10 @@ def execute_instruction(instruction, pc):
     riscv_register["x0"] = 0  # Always keep x0 as zero
     return new_pc
 
-# Function to find the first available memory location
+# Function to find whichever memory is available and has the lowerst value 
 def get_available_memory():
     for addr in memory:
-        if memory[addr] == 0:  # Unused memory location
+        if memory[addr] == 0: 
             return addr
     return None  # No available memory
 
@@ -187,7 +222,6 @@ def assign_addresses(instructions):
     return {i * 4: instructions[i] for i in range(len(instructions))}
 
 def run_combined_process(input_file, output_file):
-    # Part 1: Decode binary instructions
     binary_instructions = read_file(input_file)
     decoded_instructions = []
     
@@ -199,26 +233,25 @@ def run_combined_process(input_file, output_file):
         write_file(output_file, [str(e)])
         return
     
-    # Part 2: Execute decoded instructions
     address_map = assign_addresses(decoded_instructions)
     pc = 0
     output_lines = []
-    first_execution = True  # Track if it's the first instruction execution
+    first_execution = True 
 
     try:
         while pc in address_map:
-            if not first_execution:  # Skip first execution (pc = 0)
-                # Convert PC and registers to 32-bit two's complement binary format
+            if not first_execution:  
+                # converting values into 32 bit binary values 
                 binary_values = f"{to_binary_32bit(pc)} " + " ".join(to_binary_32bit(riscv_register[f"x{i}"]) for i in range(32)) + " "
                 output_lines.append(binary_values)
 
-            first_execution = False  # Mark first execution as done
+            first_execution = False 
             
-            # Execute instruction and calculate next PC
+            
             instruction = address_map[pc]
             new_pc = execute_instruction(instruction, pc)
 
-            if new_pc is None:  # If halt detected, repeat last line and stop
+            if new_pc is None:  # If halt detected, repeat last line
                 output_lines.append(binary_values)
                 print("Program terminated normally with halt instruction")
                 break
@@ -228,44 +261,16 @@ def run_combined_process(input_file, output_file):
         print(str(e))
         output_lines.append(str(e))
     
-    # Write memory contents to output
+    
     for addr in sorted(memory.keys()):
-        if 0x00010000 <= addr <= 0x0001007C:  # Only include addresses within this range
+        if 0x00010000 <= addr <= 0x0001007C:  # Only include addresses within this range as these are the only availiable data memory address
             output_lines.append(f"0x{addr:08X}:{to_binary_32bit(memory[addr])} ")
 
-    # Write all the output to the file
+
     write_file(output_file, output_lines)
 
-# Global variables
-registers = {format(i, '05b'): f"x{i}" for i in range(32)}
-opcode_dict = {
-    'R': ['0110011'], 'I': ['0010011', '0000011', '1100111'], 
-    'S': ['0100011'], 'B': ['1100011'], 'U': ['0110111'], 'J': ['1101111']
-}
-instruction_info = {
-    "ADD": {"opcode": "0110011", "funct3": "000", "funct7": "0000000"},
-    "SUB": {"opcode": "0110011", "funct3": "000", "funct7": "0100000"},
-    "AND": {"opcode": "0110011", "funct3": "111", "funct7": "0000000"},
-    "OR": {"opcode": "0110011", "funct3": "110", "funct7": "0000000"},
-    "SLT": {"opcode": "0110011", "funct3": "010", "funct7": "0000000"},
-    "SRL": {"opcode": "0110011", "funct3": "101", "funct7": "0000000"},
-    "LW": {"opcode": "0000011", "funct3": "010"},
-    "SW": {"opcode": "0100011", "funct3": "010"},
-    "ADDI": {"opcode": "0010011", "funct3": "000"},
-    "JALR": {"opcode": "1100111", "funct3": "000"},
-    "BEQ": {"opcode": "1100011", "funct3": "000"},
-    "BNE": {"opcode": "1100011", "funct3": "001"},
-    "JAL": {"opcode": "1101111"}
-}
 
-# Initialize simulator registers and memory
-riscv_register = {f"x{i}": 0 for i in range(32)}
-riscv_register["x2"] = 380  # Stack pointer
 
-# Initialize memory from 0x00010000 to 0x0001007C (word-aligned addresses) with 0
-memory = {
-    0x00010000 + i * 4: 0 for i in range(32)
-}
 
 # Run the combined program
 input_filename = input("Enter input file name: ")
