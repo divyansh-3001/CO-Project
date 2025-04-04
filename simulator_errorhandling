@@ -142,7 +142,7 @@ def calculate_pc(pc, parts):
         
     return new_pc
 
-def to_binary_32bit(value):
+def to_binary_32bit(value): #using this from our previous assembler project
     if value < 0:
         value = (1 << 32) + value
     
