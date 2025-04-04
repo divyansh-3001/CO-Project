@@ -272,7 +272,6 @@ def run_combined_process(input_file, output_file):
 
 
 
-# Run the combined program
 input_filename = input("Enter input file name: ")
 output_filename = input("Enter output file name: ")
 run_combined_process(input_filename, output_filename)
