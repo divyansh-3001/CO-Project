@@ -143,8 +143,11 @@ def calculate_pc(pc, parts):
     return new_pc
 
 def to_binary_32bit(value):
+    if value < 0:
+        value = (1 << 32) + value
     
-    return "0b" + format(value & 0xFFFFFFFF, '032b')
+    return f"0b{value:032b}"
+
 
 def is_valid_memory_address(address):
     
